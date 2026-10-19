@@ -1,0 +1,2 @@
+# The game sources keep their DOS line endings.
+src/game/* whitespace=cr-at-eol

@@ -1,0 +1,56 @@
+name: Linux build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      SDL_VERSION: 3.2.10
+      SDL_SHA256: f87be7b4dec66db4098e9c167b2aa34e2ca10aeb5443bdde95ae03185ed513e0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build pkg-config \
+            libasound2-dev libpulse-dev libx11-dev libxext-dev libxrandr-dev \
+            libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev \
+            libxkbcommon-dev libdrm-dev libgbm-dev libgl1-mesa-dev \
+            libegl1-mesa-dev libdbus-1-dev libudev-dev
+      - name: Build SDL3
+        run: |
+          archive="$RUNNER_TEMP/SDL3-$SDL_VERSION.tar.gz"
+          curl -fL --retry 3 \
+            "https://github.com/libsdl-org/SDL/releases/download/release-$SDL_VERSION/SDL3-$SDL_VERSION.tar.gz" \
+            -o "$archive"
+          echo "$SDL_SHA256  $archive" | sha256sum --check
+          tar -xf "$archive" -C "$RUNNER_TEMP"
+          cmake -S "$RUNNER_TEMP/SDL3-$SDL_VERSION" -B "$RUNNER_TEMP/sdl-build" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/sdl-install" \
+            -DSDL_SHARED=OFF -DSDL_STATIC=ON \
+            -DSDL_TESTS=OFF -DSDL_TEST_LIBRARY=OFF -DSDL_EXAMPLES=OFF
+          cmake --build "$RUNNER_TEMP/sdl-build" --parallel
+          cmake --install "$RUNNER_TEMP/sdl-build"
+      - name: Build reciv
+        env:
+          CC: gcc-14
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DSDL3_DIR="$RUNNER_TEMP/sdl-install/lib/cmake/SDL3"
+          cmake --build build --parallel
+      - name: Run tests
+        run: ctest --test-dir build --output-on-failure
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: reciv-linux-x86_64
+          path: build/reciv

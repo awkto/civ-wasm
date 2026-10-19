@@ -1,0 +1,6 @@
+HQ4x by Maxim Stepin, C implementation by Cameron Zemek and contributors.
+LGPL-2.1-or-later; see COPYING and source headers.
+https://github.com/grom358/hqx
+Commit a1c7d415f4bb7b947c4c2e47faf220b0148f4bac
+Vendored HQ4x and shared headers/init only. Local change: HQX_STATIC in
+hqx.h permits static linking on Windows without dllimport/export.
