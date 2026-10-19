@@ -10,6 +10,16 @@ a reverse-engineered reconstruction of the DOS source, not MicroProse's
 original code. reciv's changes to it are marked `reciv:`. `src/platform`
 replaces DOS, the BIOS and the game's drivers with SDL3.
 
+## Download for Windows
+
+Download [reciv-windows-x86_64.zip](https://github.com/sjmelia/reciv/releases/latest/download/reciv-windows-x86_64.zip)
+from the [latest release](https://github.com/sjmelia/reciv/releases/latest),
+unzip it anywhere, and point it at your game:
+
+    reciv.exe -d C:\Games\Civilization -s C:\Games\reciv-saves
+
+On Linux, build from source as below.
+
 ## Building on Linux
 
 You need CMake, Ninja, GCC 14+ (for `_BitInt`) and SDL3.
