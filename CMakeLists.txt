@@ -5,7 +5,7 @@ project(reciv C)
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_EXTENSIONS ON)
-option(RECIV_MSVC "Enable the experimental MSVC build" OFF)
+option(RECIV_MSVC "Enable the MSVC build" OFF)
 if(CMAKE_C_COMPILER_ID STREQUAL "MSVC")
     if(NOT RECIV_MSVC)
         message(FATAL_ERROR "MSVC is opt-in: configure with -DRECIV_MSVC=ON")
@@ -47,8 +47,8 @@ set(PERIOD_SOURCES ${GAME_SOURCES} src/platform/resident_names.c src/platform/st
 set_source_files_properties(${GAME_SOURCES} PROPERTIES LANGUAGE C)
 add_library(period OBJECT ${PERIOD_SOURCES})
 if(MSVC)
-    # The original code assumes wrapping arithmetic. Avoid optimization in
-    # this experimental backend until its arithmetic is validated under MSVC.
+    # The original code assumes wrapping arithmetic, which MSVC does not
+    # promise; build the period code unoptimized so it is not exploited.
     target_compile_options(period PRIVATE /TC /X /Oi- /Od /Ob0 /w /utf-8
         "/FI${CMAKE_CURRENT_SOURCE_DIR}/src/period/prelude.h")
 else()

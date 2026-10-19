@@ -43,8 +43,7 @@ The script downloads and verifies SDL3, and produces `build-msvc/package/`
 and `build-msvc/reciv-windows-msvc-x86_64.zip`. For VS 2022, add
 `-VisualStudio 2022 -BuildDir build-msvc-2022`.
 
-MSVC support is experimental; GCC is the reference build. Four of the eight
-tests need GNU `ld --wrap` and are skipped under MSVC.
+Four of the eight tests need GNU `ld --wrap` and are skipped under MSVC.
 
 ## Options
 
