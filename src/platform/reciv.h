@@ -44,6 +44,11 @@ void reciv_set_start_address(uint16_t start);  /* CRTC 0Ch/0Dh */
 const uint8_t *reciv_page_background(uint16_t page);
 const uint8_t *reciv_page_text_mask(uint16_t page);
 void reciv_page_layers_reset(uint16_t page);
+/* civ-wasm: the size of the screen and of every page (default 320 x 200). */
+extern int reciv_screen_w, reciv_screen_h;
+void reciv_pages_init(void);
+void reciv_page_wide(uint16_t page, int on);  /* the page holds the wide map view */
+uint8_t *reciv_screen_pixels(void);
 
 /* ------------------------------------------------------------- time */
 

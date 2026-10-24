@@ -9,7 +9,10 @@ var Module = {
   print: t => console.log(t), printErr: t => console.warn(t),
   onRuntimeInitialized() {
     FS.mkdir('/saves');
-    Module.callMain(['-d', '/civ', '-s', '/saves', '--skip-quiz']);
+    const q = new URLSearchParams(location.search), args = ['-d', '/civ', '-s', '/saves', '--skip-quiz'];
+    if (q.get('screen')) args.push('--screen', q.get('screen'));
+    if (q.get('filter')) args.push('--filter', q.get('filter'));
+    Module.callMain(args);
   },
 };
 </script>

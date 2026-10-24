@@ -24,23 +24,23 @@ void reciv_resident_data_init(void)
 /* ------------------------------------------------------------- raster */
 
 /* The edge tables rect_fill fills for raster_spans: left x per row, then
- * right x per row. */
-static int16_t edges[400];
+ * right x per row (civ-wasm: one row per screen row, reciv_screen_h). */
+static int16_t edges[2 * 4096];
 static int16_t first_row = -1, last_row;
 static int edges_ready;
 
 static void reset_edges(void)
 {
     if (!edges_ready) {
-        for (int i = 0; i < 200; i++)
+        for (int i = 0; i < reciv_screen_h; i++)
             edges[i] = -1;
         edges_ready = 1;
     }
     if (first_row < 0)
         return;
-    for (int i = first_row; i <= last_row && i < 200; i++) {
+    for (int i = first_row; i <= last_row && i < reciv_screen_h; i++) {
         edges[i] = -1;
-        edges[200 + i] = 0;
+        edges[reciv_screen_h + i] = 0;
     }
     first_row = -1;
     last_row = 0;
@@ -56,6 +56,15 @@ int16_t rect_fill(const struct page16 *pg, int16_t x, int16_t y, int16_t w, int1
     int16_t row, left, right;
     if (w <= 0 || h <= 0)
         return 0;
+    /* civ-wasm: a fill to the classic screen's right and bottom edges
+     * reaches the larger screen's; clearing all of it starts a 320x200
+     * picture. */
+    if (x + pg->left + w == 320 && y + pg->top + h == 200 && w >= 200 && h >= 100) {
+        w = (int16_t) (reciv_screen_w - x - pg->left);
+        h = (int16_t) (reciv_screen_h - y - pg->top);
+    }
+    if (x + pg->left <= 0 && y + pg->top <= 0 && x + pg->left + w >= 320 && y + pg->top + h >= 200)
+        reciv_page_wide((uint16_t) pg->number, 0);
     reset_edges();
     reciv_raster_page((uint16_t) pg->number);
     row = (int16_t) (y + pg->top);
@@ -63,13 +72,13 @@ int16_t rect_fill(const struct page16 *pg, int16_t x, int16_t y, int16_t w, int1
     left = (int16_t) (x + pg->left);
     right = (int16_t) (x + pg->left + w - 1);
     for (int16_t i = 0; i < h; i++)
-        if ((uint16_t) (row + i) < 200) {
+        if ((uint16_t) (row + i) < (uint16_t) reciv_screen_h) {
             edges[row + i] = left;
-            edges[200 + row + i] = right;
+            edges[reciv_screen_h + row + i] = right;
         }
     reciv_raster_colour((uint8_t) colour, (uint8_t) ((uint16_t) colour >> 8));
     last_row = (int16_t) (first_row + h - 1);
-    reciv_raster_spans(first_row, last_row < 200 ? last_row : 199, edges);
+    reciv_raster_spans(first_row, last_row < reciv_screen_h ? last_row : (int16_t) (reciv_screen_h - 1), edges);
     if (first_row < 0 || first_row > last_row)
         return first_row;
     return (int16_t) ((colour & 0xFF) * 0x101);

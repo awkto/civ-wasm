@@ -1,3 +1,4 @@
+#include "WIDE.H"                /* civ-wasm */
 /* Overlay 2 (code length 19BC): start-up, credits/title sequence,
    spaceship arrival, civilization destroyed and the start-of-game
    screen. Compiled with /AM /Gs /Oas /Zl. */
@@ -560,8 +561,8 @@ void show_start(void)
     int yc;
 
     mouse_off();
-    xc = map_x0 + 7;
-    yc = map_y0 + 6;
+    xc = map_x0 + view_cols / 2;
+    yc = map_y0 + view_rows / 2;
     for (i = 1; i <= 8; i++) {
         x = wrap_x(spiral_x[i] + xc);
         y = spiral_y[i] + yc;

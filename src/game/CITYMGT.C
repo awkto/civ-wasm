@@ -1,3 +1,4 @@
+#include "WIDE.H"                /* civ-wasm */
 /* City turn processing, worker assignment and the interactive city screen. */
 #include "CIV.H"
 #include "RESIDENT.H"
@@ -1937,7 +1938,7 @@ label_tile_toggle:
                 radius_y = radius_dy[scratch_i] + city_y_p;
                 if (!(map_flags(tile_x_l, radius_y) & 0x40) && terrain_at(tile_x_l, radius_y) != 10 && !(map_flags(tile_x_l, radius_y) & 1)) {
                     add_pollution(tile_x_l, radius_y);
-                    reveal(civnow, tile_x_l - 8, radius_y - 6);
+                    reveal(civnow, tile_x_l - 8 - WIDE_DX, radius_y - 6 - WIDE_DY);
                     map_note(tile_x_l, radius_y);
                     advisor = 6;
                     strcpy(msgtext, "Pollution near ");
@@ -1948,7 +1949,7 @@ label_tile_toggle:
             }
             /* Disorder can cause a nuclear meltdown until Fusion Power is known. */
             if ((townbuf[city].status & 1) && (townbuf[city].buildings & 0x100000L) && rand_scaled(3) == 0 && has_tech(selected_owner, 66) == 0) {
-                reveal(civnow, city_x - 8, city_y_p - 6);
+                reveal(civnow, city_x - 8 - WIDE_DX, city_y_p - 6 - WIDE_DY);
                 nuke_animation(city_x, city_y_p);
                 nuke_fallout(city_x, city_y_p);
                 townbuf[city].buildings &= ~0x100000L;

@@ -10,6 +10,7 @@
  * Pages are 64,000-byte blocks of real-mode memory (page 0 is the VGA at
  * A000h). A page record (GRAPHICS.H struct page) is nine words: number,
  * left, top, right, bottom, active, colour, text colour, font. */
+#include <stdlib.h>
 #include <string.h>
 
 #include "reciv.h"
@@ -24,24 +25,88 @@ static uint16_t data_seg;                       /* the driver's DATA paragraph *
 #define FONTS 0x630
 
 static uint16_t page_segs[8] = { VGA_SEG, VGA_SEG, VGA_SEG, VGA_SEG, VGA_SEG, VGA_SEG, VGA_SEG, VGA_SEG };
+/* civ-wasm: pages are host buffers of reciv_screen_w x reciv_screen_h
+ * pixels (320 x 200 unless --screen asks for more), addressed by 32-bit
+ * offsets. The DOS blocks the game allocates for them are kept but not
+ * drawn in. An offset outside the page, which wrapped within the segment
+ * on DOS, reaches a scratch byte. page_mem[n] is page 0's buffer until the
+ * game gives page n memory of its own, as page_segs pointed at the VGA. */
+int reciv_screen_w = 320, reciv_screen_h = 200;
+static uint8_t *page_mem[8];
+static uint8_t *page_own[8];
+static uint8_t page_scratch;
 /* Presentation-only layer state.  The game's page remains the authoritative
  * composited image.  background_pages retains what is below transparent text,
  * while text_pages marks pixels whose last visible writer was a glyph. */
-static uint8_t background_pages[8][0x10000];
-static uint8_t text_pages[8][0x10000];
-static uint16_t raster_seg = VGA_SEG;
+static uint8_t *background_pages[8];
+static uint8_t *text_pages[8];
+static uint8_t layer_scratch[2];
 static uint16_t raster_page;
 static int16_t raster_left, raster_top, raster_right = 319;
 static uint8_t raster_colour_value, raster_op;
 
-static uint8_t *page_at(uint16_t page, uint16_t offset)
+#define SW ((uint32_t) reciv_screen_w)
+#define PAGE_BYTES ((uint32_t) reciv_screen_w * (uint32_t) reciv_screen_h)
+
+void reciv_pages_init(void)
 {
-    return REAL(page_segs[page & 7], offset);
+    for (int i = 0; i < 8; i++) {
+        background_pages[i] = calloc(PAGE_BYTES, 1);
+        text_pages[i] = calloc(PAGE_BYTES, 1);
+    }
+    page_own[0] = calloc(PAGE_BYTES, 1);
+    if (!page_own[0] || !background_pages[7] || !text_pages[7])
+        reciv_fatal("no memory for %dx%d pages", reciv_screen_w, reciv_screen_h);
+    for (int i = 0; i < 8; i++)
+        page_mem[i] = page_own[0];
 }
 
-static uint16_t row_offset(int16_t y)
+uint8_t *reciv_screen_pixels(void)
 {
-    return (uint16_t) (y * 320);
+    return page_mem[0];
+}
+
+static uint8_t *page_at(uint16_t page, uint32_t offset)
+{
+    return offset < PAGE_BYTES ? page_mem[page & 7] + offset : &page_scratch;
+}
+
+static uint8_t *background_at(uint16_t page, uint32_t offset)
+{
+    return offset < PAGE_BYTES ? background_pages[page & 7] + offset : &layer_scratch[0];
+}
+
+static uint8_t *text_at(uint16_t page, uint32_t offset)
+{
+    return offset < PAGE_BYTES ? text_pages[page & 7] + offset : &layer_scratch[1];
+}
+
+/* civ-wasm: whether each page holds a wide picture (the map) or a classic
+ * 320x200 one; the screen's flag picks what video.c shows. */
+static uint8_t page_wide[8];
+extern int reciv_wide_view;
+
+void reciv_page_wide(uint16_t page, int on)
+{
+    page_wide[page & 7] = (uint8_t) on;
+    if (page_mem[page & 7] == page_mem[0] && reciv_wide_view != on) {
+        page_wide[0] = (uint8_t) on;
+        reciv_wide_view = on;
+        reciv_video_dirty();
+    }
+}
+
+/* The game's call (WIDE.H): the map was drawn on the screen record's page. */
+struct page16;
+extern struct page16 *scrbuf;
+void wide_view(int16_t on)
+{
+    reciv_page_wide((uint16_t) *(int16_t *) scrbuf, on);
+}
+
+static uint32_t row_offset(int16_t y)
+{
+    return (uint32_t) ((int32_t) y * (int32_t) reciv_screen_w);
 }
 
 /* The store instruction raster_colour patches: MOV, AND, OR or XOR. */
@@ -55,20 +120,20 @@ static uint8_t raster_result(uint8_t old, uint8_t colour)
     }
 }
 
-static void store_nontext(uint16_t page, uint16_t offset, uint8_t colour)
+static void store_nontext(uint16_t page, uint32_t offset, uint8_t colour)
 {
     uint8_t *pixel = page_at(page, offset);
     uint8_t result = raster_result(*pixel, colour);
     *pixel = result;
-    background_pages[page & 7][offset] = result;
-    text_pages[page & 7][offset] = 0;
+    *background_at(page, offset) = result;
+    *text_at(page, offset) = 0;
 }
 
-static void store_text(uint16_t page, uint16_t offset, uint8_t colour)
+static void store_text(uint16_t page, uint32_t offset, uint8_t colour)
 {
     uint8_t *pixel = page_at(page, offset);
     *pixel = raster_result(*pixel, colour);
-    text_pages[page & 7][offset] = 1;
+    *text_at(page, offset) = 1;
 }
 
 const uint8_t *reciv_page_background(uint16_t page)
@@ -84,8 +149,8 @@ const uint8_t *reciv_page_text_mask(uint16_t page)
 void reciv_page_layers_reset(uint16_t page)
 {
     page &= 7;
-    memcpy(background_pages[page], page_at(page, 0), 0x10000);
-    memset(text_pages[page], 0, 0x10000);
+    memcpy(background_pages[page], page_mem[page], PAGE_BYTES);
+    memset(text_pages[page], 0, PAGE_BYTES);
 }
 
 void reciv_mgraphic_install(uint16_t seg)
@@ -157,6 +222,13 @@ void set_page_memory(int16_t n, int16_t seg)
 {
     reciv_require_slot(25);
     page_segs[n & 7] = (uint16_t) seg;
+    if ((uint16_t) seg == VGA_SEG)
+        page_mem[n & 7] = page_own[0];
+    else {
+        if (!page_own[n & 7] && !(page_own[n & 7] = calloc(PAGE_BYTES, 1)))
+            reciv_fatal("no memory for page %d", n);
+        page_mem[n & 7] = page_own[n & 7];
+    }
     reciv_page_layers_reset((uint16_t) n);
 }
 
@@ -176,38 +248,40 @@ int16_t page_ready(int16_t n)
 int16_t pixel_at(int16_t page, int16_t x, int16_t y)
 {
     reciv_require_slot(14);
-    return *page_at((uint16_t) page, (uint16_t) (row_offset(y) + x));
+    return *page_at((uint16_t) page, row_offset(y) + (uint32_t) x);
 }
 
 /* Slot 13: copy part of a page row into a near buffer. */
 void page_read_row(uint8_t *buffer, int16_t page, int16_t x, int16_t y, int16_t n)
 {
-    uint16_t off = (uint16_t) (row_offset(y) + x);
+    uint32_t off = row_offset(y) + (uint32_t) x;
     reciv_require_slot(13);
     for (uint16_t i = 0; i < (uint16_t) n; i++)
-        buffer[i] = *page_at((uint16_t) page, (uint16_t) (off + i));
+        buffer[i] = *page_at((uint16_t) page, off + i);
 }
 
 /* Slot 19: copy a near buffer into a page row, a word at a time. */
 void draw_scanline(const uint8_t *buffer, int16_t page, int16_t x, int16_t y, int16_t n)
 {
-    uint16_t off = (uint16_t) (row_offset(y) + x);
+    uint32_t off = row_offset(y) + (uint32_t) x;
     uint16_t bytes = (uint16_t) (((uint16_t) n + 1) >> 1) * 2;
     reciv_require_slot(19);
     if (n == -1)
         bytes = 0;              /* (FFFFh + 1) >> 1: no words */
+    if (!x && !y && n >= 320)
+        reciv_page_wide((uint16_t) page, 0);    /* a full-screen picture */
     for (uint16_t i = 0; i < bytes; i++) {
-        uint16_t at = (uint16_t) (off + i);
+        uint32_t at = off + i;
         *page_at((uint16_t) page, at) = buffer[i];
-        background_pages[page & 7][at] = buffer[i];
-        text_pages[page & 7][at] = 0;
+        *background_at((uint16_t) page, at) = buffer[i];
+        *text_at((uint16_t) page, at) = 0;
     }
 }
 
 /* Slot 3: in a rectangle, replace colour `from` with `to`. */
 void recolour_rect(const struct page16 *pg, int16_t x, int16_t y, int16_t w, int16_t h, int16_t from, int16_t to)
 {
-    uint16_t di = (uint16_t) (row_offset((int16_t) (y + pg->top)) + x + pg->left);
+    uint32_t di = row_offset((int16_t) (y + pg->top)) + (uint32_t) (int32_t) (x + pg->left);
     uint16_t rows = (uint16_t) h;
     reciv_require_slot(3);
     do {
@@ -218,12 +292,12 @@ void recolour_rect(const struct page16 *pg, int16_t x, int16_t y, int16_t w, int
                 *p = (uint8_t) to;
                 /* Recolouring transforms a visible glyph, but not the hidden
                  * background that preceded it. */
-                if (!text_pages[pg->number & 7][di])
-                    background_pages[pg->number & 7][di] = (uint8_t) to;
+                if (!*text_at((uint16_t) pg->number, di))
+                    *background_at((uint16_t) pg->number, di) = (uint8_t) to;
             }
             di++;
         } while (--cx);
-        di = (uint16_t) (di + 320 - w);
+        di = di + SW - (uint16_t) w;
     } while (--rows);
 }
 
@@ -231,23 +305,34 @@ void recolour_rect(const struct page16 *pg, int16_t x, int16_t y, int16_t w, int
 void blit(const struct page16 *src, int16_t sx, int16_t sy, int16_t w, int16_t h,
           const struct page16 *dst, int16_t dx, int16_t dy)
 {
-    uint16_t si = (uint16_t) (row_offset((int16_t) (src->top + sy)) + src->left + sx);
-    uint16_t di = (uint16_t) (row_offset((int16_t) (dst->top + dy)) + dst->left + dx);
-    uint16_t rows = (uint16_t) h;
+    uint32_t si, di;
+    uint16_t rows;
     reciv_require_slot(20);
+    /* civ-wasm: a copy that reaches the classic screen's right and bottom
+     * edges at the same place on both pages (saving or restoring the
+     * screen, or the map area) reaches the larger screen's edges. */
+    if (sx == dx && sy == dy && src->left == dst->left && src->top == dst->top &&
+        src->left + sx + w == 320 && src->top + sy + h == 200 && w >= 200 && h >= 100) {
+        w = (int16_t) (reciv_screen_w - src->left - sx);
+        h = (int16_t) (reciv_screen_h - src->top - sy);
+        if (src->left + sx <= 0 && src->top + sy <= 0)
+            reciv_page_wide((uint16_t) dst->number, page_wide[src->number & 7]);
+    }
+    si = row_offset((int16_t) (src->top + sy)) + (uint32_t) (int32_t) (src->left + sx);
+    di = row_offset((int16_t) (dst->top + dy)) + (uint32_t) (int32_t) (dst->left + dx);
+    rows = (uint16_t) h;
     if (!w || !h)
         return;
     do {
         uint16_t sp = (uint16_t) src->number & 7, dp = (uint16_t) dst->number & 7;
-        uint8_t *s = page_at(sp, 0), *d = page_at(dp, 0);
         for (uint16_t i = 0; i < (uint16_t) w; i++) {
-            uint16_t so = (uint16_t) (si + i), dest = (uint16_t) (di + i);
-            d[dest] = s[so];
-            background_pages[dp][dest] = background_pages[sp][so];
-            text_pages[dp][dest] = text_pages[sp][so];
+            uint32_t so = si + i, dest = di + i;
+            *page_at(dp, dest) = *page_at(sp, so);
+            *background_at(dp, dest) = *background_at(sp, so);
+            *text_at(dp, dest) = *text_at(sp, so);
         }
-        si = (uint16_t) (si + 320);
-        di = (uint16_t) (di + 320);
+        si += SW;
+        di += SW;
     } while (--rows);
 }
 
@@ -271,9 +356,10 @@ static void set_page_now(int16_t n)
     if (!n)
         return;
     reciv_cursor_draw((uint16_t) n);
-    memmove(REAL(page_segs[0], 0), REAL(page_segs[n & 7], 0), 64000);
-    memmove(background_pages[0], background_pages[n & 7], 64000);
-    memmove(text_pages[0], text_pages[n & 7], 64000);
+    reciv_page_wide(0, page_wide[n & 7]);
+    memmove(page_mem[0], page_mem[n & 7], PAGE_BYTES);
+    memmove(background_pages[0], background_pages[n & 7], PAGE_BYTES);
+    memmove(text_pages[0], text_pages[n & 7], PAGE_BYTES);
     reciv_video_dirty();
 }
 
@@ -302,8 +388,9 @@ void page_dissolve(int16_t n, int16_t time)
         reciv_wait();
     if (!n)
         return;
-    src = REAL(page_segs[n & 7], 0);
-    dst = REAL(page_segs[0], 0);
+    src = page_mem[n & 7];
+    dst = page_mem[0];
+    reciv_page_wide(0, page_wide[n & 7]);
     per_frame = time ? (uint16_t) (0x2260 / (uint16_t) time) : 0;
     if (time && !per_frame)
         per_frame = 1;
@@ -315,9 +402,20 @@ void page_dissolve(int16_t n, int16_t time)
             if (carry)
                 si ^= 0xB400;
         } while (si > 0xFA00);
-        dst[si - 1] = src[si - 1];
-        background_pages[0][si - 1] = background_pages[n & 7][si - 1];
-        text_pages[0][si - 1] = text_pages[n & 7][si - 1];
+        {
+            /* civ-wasm: cell si - 1 of the 320 x 200 order covers a block
+             * of a larger screen. */
+            uint32_t cx = (uint32_t) (si - 1) % 320, cy = (uint32_t) (si - 1) / 320;
+            uint32_t x0 = cx * SW / 320, x1 = (cx + 1) * SW / 320;
+            uint32_t y0 = cy * (uint32_t) reciv_screen_h / 200, y1 = (cy + 1) * (uint32_t) reciv_screen_h / 200;
+            for (uint32_t yy = y0; yy < y1; yy++)
+                for (uint32_t xx = x0; xx < x1; xx++) {
+                    uint32_t at = yy * SW + xx;
+                    dst[at] = src[at];
+                    background_pages[0][at] = background_pages[n & 7][at];
+                    text_pages[0][at] = text_pages[n & 7][at];
+                }
+        }
         if (per_frame && ++done >= per_frame) {
             done = 0;
             reciv_video_dirty();
@@ -441,15 +539,14 @@ int16_t cut_tile(int16_t page, int16_t x, int16_t y, int16_t w, int16_t h)
 {
     reciv_require_slot(2);
     if (sprite_begin(w, h) && sprite_rows && sprite_width) {
-        uint16_t si = (uint16_t) (row_offset(y) + x);
+        uint32_t si = row_offset(y) + (uint32_t) x;
         uint16_t number = (uint16_t) (page < 0 ? -page : page);
         do {
             uint8_t row[0x10000 / 16];
-            uint8_t *base = REAL(page_segs[number & 7], 0);
             for (uint16_t i = 0; i < sprite_width && i < sizeof row; i++)
-                row[i] = base[(uint16_t) (si + i)];
+                row[i] = *page_at(number, si + i);
             sprite_encode_row(row);
-            si = (uint16_t) (si + 320);
+            si += SW;
         } while (--sprite_rows);
     }
     return sprite_end();
@@ -506,13 +603,13 @@ static int sprite_clip(const struct page16 *pg, int16_t x, int16_t y)
 static void sprite_blit_rows(const struct page16 *pg, int16_t x, int16_t y, uint16_t sprite)
 {
     uint16_t page_number = (uint16_t) pg->number & 7;
-    uint8_t *page = REAL(page_segs[page_number], 0);
     uint8_t *spr = REAL(sprite, 0);
-    uint16_t si = 0, bp, draw_cols, draw_rows;
+    uint16_t si = 0, draw_cols, draw_rows;
+    uint32_t bp;
     int16_t ax;
     x = (int16_t) (x + pg->left);
     y = (int16_t) (y + pg->top + clip_top);
-    bp = (uint16_t) (row_offset(y) + x);
+    bp = row_offset(y) + (uint32_t) (int32_t) x;
     ax = (int16_t) (peek16(spr + si) - clip_right);
     si += 2;
     if (ax <= 0)
@@ -541,21 +638,21 @@ static void sprite_blit_rows(const struct page16 *pg, int16_t x, int16_t y, uint
             if (cx > draw_cols)
                 cx = draw_cols;
             if (cx > bx) {
-                uint16_t di = (uint16_t) (bp + bx);
+                uint32_t di = bp + bx;
                 cx = (uint16_t) (cx - bx);
                 dx = (uint16_t) (dx - cx);
                 while (cx--) {
                     uint8_t c = spr[si++];
                     if (c) {
-                        page[di] = c;
-                        background_pages[page_number][di] = c;
-                        text_pages[page_number][di] = 0;
+                        *page_at(page_number, di) = c;
+                        *background_at(page_number, di) = c;
+                        *text_at(page_number, di) = 0;
                     }
                     di++;
                 }
             }
         }
-        bp = (uint16_t) (bp + 320);
+        bp += SW;
         si = (uint16_t) (si + dx);
     } while (--draw_rows);
 }
@@ -602,16 +699,17 @@ static uint8_t under_cursor_background[512], under_cursor_text[512];
 void reciv_cursor_erase(void)
 {
     if (cursor_shown) {
-        uint16_t di = (uint16_t) (row_offset(under_y) + under_x), si = 0;
-        uint8_t *screen = REAL(page_segs[0], 0);
+        uint32_t di = row_offset(under_y) + (uint32_t) under_x;
+        uint16_t si = 0;
         for (int16_t r = under_height; r > 0; r--) {
             for (int16_t i = 0; i < under_width; i++) {
-                uint16_t at = (uint16_t) (di + i), saved = si++ & 511;
-                screen[at] = under_cursor[saved];
-                background_pages[0][at] = under_cursor_background[saved];
-                text_pages[0][at] = under_cursor_text[saved];
+                uint32_t at = di + (uint32_t) i;
+                uint16_t saved = si++ & 511;
+                *page_at(0, at) = under_cursor[saved];
+                *background_at(0, at) = under_cursor_background[saved];
+                *text_at(0, at) = under_cursor_text[saved];
             }
-            di = (uint16_t) (di + 320);
+            di += SW;
         }
         reciv_video_dirty();
     }
@@ -621,23 +719,24 @@ void reciv_cursor_erase(void)
 /* Slot 9: save what is under the cursor on page n and draw it there. */
 void reciv_cursor_draw(uint16_t page)
 {
-    static const struct page16 screen_clip = { 0, 0, 0, 319, 199, 0, 0, 0, 0 };
-    struct page16 clip = screen_clip;
-    uint16_t si, di = 0;
-    uint8_t *src;
+    struct page16 clip = { 0, 0, 0, 319, 199, 0, 0, 0, 0 };
+    uint32_t si;
+    uint16_t di = 0;
+    clip.right = (int16_t) (reciv_screen_w - 1);
+    clip.bottom = (int16_t) (reciv_screen_h - 1);
     cursor_page = page;
     if (!cursor_shown)
         return;
-    si = (uint16_t) (row_offset(under_y) + under_x);
-    src = REAL(page_segs[page & 7], 0);
+    si = row_offset(under_y) + (uint32_t) under_x;
     for (int16_t r = under_height; r > 0; r--) {
         for (int16_t i = 0; i < under_width; i++) {
-            uint16_t at = (uint16_t) (si + i), saved = di++ & 511;
-            under_cursor[saved] = src[at];
-            under_cursor_background[saved] = background_pages[page & 7][at];
-            under_cursor_text[saved] = text_pages[page & 7][at];
+            uint32_t at = si + (uint32_t) i;
+            uint16_t saved = di++ & 511;
+            under_cursor[saved] = *page_at(page, at);
+            under_cursor_background[saved] = *background_at(page, at);
+            under_cursor_text[saved] = *text_at(page, at);
         }
-        si = (uint16_t) (si + 320);
+        si += SW;
     }
     clip.number = (int16_t) cursor_page;
     sprite_draw_clipped_now(&clip, cursor_x, cursor_y, cursor_sprite);
@@ -663,8 +762,8 @@ void reciv_cursor_set(int16_t x, int16_t y, uint16_t sprite)
         w = (uint16_t) (w - ax);
         ax = 0;
     }
-    cx = (uint16_t) (320 - ax);
-    if (!cx || (int16_t) ax > 320)
+    cx = (uint16_t) (reciv_screen_w - ax);
+    if (!cx || (int16_t) ax > reciv_screen_w)
         goto hidden;
     if (w > cx)
         w = cx;
@@ -683,8 +782,8 @@ void reciv_cursor_set(int16_t x, int16_t y, uint16_t sprite)
         h = (uint16_t) (h - ax);
         ax = 0;
     }
-    cx = (uint16_t) (200 - ax);
-    if (!cx || (int16_t) ax > 200)
+    cx = (uint16_t) (reciv_screen_h - ax);
+    if (!cx || (int16_t) ax > reciv_screen_h)
         goto hidden;
     if (h > cx)
         h = cx;
@@ -712,7 +811,6 @@ void reciv_raster_colour(uint8_t colour, uint8_t op)
 void reciv_raster_page(uint16_t page)
 {
     raster_page = page & 7;
-    raster_seg = page_segs[page & 7];
 }
 
 /* Slot 49: target page record (origin and right edge). */
@@ -729,15 +827,15 @@ void reciv_raster_plot(int16_t x, int16_t y)
 {
     x = (int16_t) (x + raster_left);
     y = (int16_t) (y + raster_top);
-    store_nontext(raster_page, (uint16_t) (row_offset(y) + x), raster_colour_value);
+    store_nontext(raster_page, row_offset(y) + (uint32_t) (int32_t) x, raster_colour_value);
     reciv_video_dirty();
 }
 
 /* Slot 42: a line from x0,y0 to x1,y1 (Bresenham). */
 void reciv_raster_line(int16_t ax, int16_t bx, int16_t cx, int16_t dx)
 {
-    uint16_t di, si, bp, step;
-    int16_t err, minor;
+    uint32_t di, si, bp, step, minor;
+    int16_t err;
     ax = (int16_t) (ax + raster_left);
     cx = (int16_t) (cx + raster_left);
     bx = (int16_t) (bx + raster_top);
@@ -748,69 +846,74 @@ void reciv_raster_line(int16_t ax, int16_t bx, int16_t cx, int16_t dx)
     }
     reciv_video_dirty();
     if (bx == dx && ax == cx) {
-        store_nontext(raster_page, (uint16_t) (row_offset(bx) + ax), raster_colour_value);
+        store_nontext(raster_page, row_offset(bx) + (uint32_t) (int32_t) ax, raster_colour_value);
         return;
     }
-    di = (uint16_t) (row_offset(bx) + ax);
+    di = row_offset(bx) + (uint32_t) (int32_t) ax;
     si = 1;
-    bp = 320;
+    bp = SW;
     dx = (int16_t) (dx - bx);
     cx = (int16_t) (cx - ax);
     if (cx < 0) {
         cx = (int16_t) -cx;
-        si = (uint16_t) -1;
+        si = (uint32_t) -1;
     }
-    step = (uint16_t) (si + bp);        /* diagonal */
+    step = si + bp;                     /* diagonal */
     if ((uint16_t) cx < (uint16_t) dx) {
-        uint16_t t = si; si = bp; bp = t;
+        uint32_t t = si; si = bp; bp = t;
         int16_t u = cx; cx = dx; dx = u;
     }
     /* Straight lines: a run along the axis. */
+    uint32_t run_step;
     if (cx == dx) {
-        bx = (int16_t) step;
+        run_step = step;
     } else if (!cx) {
-        bx = (int16_t) bp;
+        run_step = bp;
     } else if (!dx) {
-        bx = (int16_t) si;
+        run_step = si;
     } else {
-        minor = (int16_t) bp;
+        minor = bp;
         err = (int16_t) -(((uint16_t) cx + 1) >> 1);
         for (int16_t n = cx;; ) {
             store_nontext(raster_page, di, raster_colour_value);
             if (--n < 0)
                 return;
-            di = (uint16_t) (di + si);
+            di += si;
             err = (int16_t) (err + dx);
             if (err >= 0) {
                 err = (int16_t) (err - cx);
-                di = (uint16_t) (di + minor);
+                di += minor;
             }
         }
     }
     /* hline_store: cx | dx + 1 pixels stepping bx. */
     for (uint16_t n = (uint16_t) ((cx | dx) + 1); n; n--) {
         store_nontext(raster_page, di, raster_colour_value);
-        di = (uint16_t) (di + (uint16_t) bx);
+        di += run_step;
     }
 }
 
 /* Slot 39: fill rows first..last between the edge tables (left x at
- * edges[y], right x at edges[200 + y]). A one-pixel span at x 0 or at the
+ * edges[y], right x at edges[reciv_screen_h + y]). A one-pixel span at x 0 or at the
  * right edge is skipped. */
 void reciv_raster_spans(int16_t first, int16_t last, const int16_t *edges)
 {
     if (first < 0 || first > last)
         return;
     for (int16_t y = first; y <= last; y++) {
-        int16_t left = edges[y], right = edges[200 + y];
+        int16_t left = edges[y], right = edges[reciv_screen_h + y];
         uint16_t n = (uint16_t) (right - left);
         if ((uint16_t) right < (uint16_t) left)
             continue;
         if (n == 0 && (left == 0 || left == raster_right))
             continue;
         n++;
-        uint16_t offset = (uint16_t) (row_offset(y) + left);
-        memset(REAL(raster_seg, offset), raster_colour_value, n);
+        uint32_t offset = row_offset(y) + (uint32_t) (int32_t) left;
+        if (offset >= PAGE_BYTES)
+            continue;
+        if (n > PAGE_BYTES - offset)
+            n = (uint16_t) (PAGE_BYTES - offset);
+        memset(page_mem[raster_page] + offset, raster_colour_value, n);
         memset(background_pages[raster_page] + offset, raster_colour_value, n);
         memset(text_pages[raster_page] + offset, 0, n);
     }
@@ -985,14 +1088,12 @@ static int text_cut_bottom(const struct page16 *pg)
 static void text_render(struct page16 *pg, const char *s)
 {
     uint16_t page_number = (uint16_t) pg->number & 7;
-    uint8_t *page;
-    uint16_t di;
+    uint32_t di;
     text.colour = (uint8_t) pg->colour;
     reciv_raster_colour((uint8_t) pg->colour, (uint8_t) ((uint16_t) pg->colour >> 8));
     text.background = (uint8_t) pg->text_colour;
     text.opaque = (uint8_t) pg->active;
-    page = REAL(page_segs[page_number], 0);
-    di = (uint16_t) (row_offset(text.y) + text.x);
+    di = row_offset(text.y) + (uint32_t) (int32_t) text.x;
     for (;;) {
         uint8_t c = (uint8_t) *s, next;
         const uint8_t *glyph;
@@ -1021,50 +1122,50 @@ static void text_render(struct page16 *pg, const char *s)
         skip = text.skip;
         rows = (uint8_t) text.rows;
         if (text.opaque == 1) {
-            uint16_t row = di;
+            uint32_t row = di;
             do {
                 uint16_t bits = (uint16_t) (glyph[0] << 8 | glyph[1]) << skip;
                 uint8_t n = text.width;
-                uint16_t p = row;
+                uint32_t p = row;
                 do {
                     if (bits & 0x8000) {
-                        page[p] = text.colour;
+                        *page_at(page_number, p) = text.colour;
                         /* Opaque text replaces the whole cell.  Its background
                          * therefore also lies beneath foreground glyph bits. */
-                        background_pages[page_number][p] = text.background;
-                        text_pages[page_number][p] = 1;
+                        *background_at(page_number, p) = text.background;
+                        *text_at(page_number, p) = 1;
                     } else {
-                        page[p] = text.background;
-                        background_pages[page_number][p] = text.background;
-                        text_pages[page_number][p] = 0;
+                        *page_at(page_number, p) = text.background;
+                        *background_at(page_number, p) = text.background;
+                        *text_at(page_number, p) = 0;
                     }
                     p++;
                     bits <<= 1;
                 } while (--n);
-                row = (uint16_t) (row + 320);
+                row += SW;
                 glyph += text.row_bytes;
             } while (--rows);
         } else {
             uint8_t cols = text.width;
-            uint16_t row = di;
+            uint32_t row = di;
             if (next)
                 cols = (uint8_t) (cols - text.spacing);
             do {
                 uint16_t bits = (uint16_t) (glyph[0] << 8 | glyph[1]) << skip;
                 uint8_t n = cols;
-                uint16_t p = row;
+                uint32_t p = row;
                 do {
                     if (bits & 0x8000)
                         store_text(page_number, p, text.colour);
                     bits <<= 1;
                     p++;
                 } while (--n);
-                row = (uint16_t) (row + 320);
+                row += SW;
                 glyph += text.row_bytes;
             } while (--rows);
         }
         text.skip = 0;
-        di = (uint16_t) (di + text.width);
+        di += text.width;
         text.x = (int16_t) (text.x + text.width);
     }
     pg->colour = (int16_t) (((uint16_t) pg->colour & 0xFF00) | text.colour);

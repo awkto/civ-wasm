@@ -1,3 +1,4 @@
+#include "WIDE.H"                /* civ-wasm */
 /* F0403 whole-unit recovery candidate; diagnostic until exact period integration. */
 #include "CIV.H"
 #include "RESIDENT.H"
@@ -165,14 +166,14 @@ void ai_turn(int civ)
                 continue;
             }
             if (civ == civnow && !(U.status & 0xc2)) {
-                if (!(map_x0 < U.x && map_y0 < U.y && map_x0 + 14 >= U.x && map_y0 + 10 > U.y)) {
+                if (!(map_x0 < U.x && map_y0 < U.y && map_x0 + view_cols - 1 >= U.x && map_y0 + view_rows - 2 > U.y)) {
                     if (ke == 0) {
                         oa = 0;
                         continue;
                     } else {
                         if (still != 1)
                             flip(30);
-                        reveal(civ, U.x - 7, U.y - 6);
+                        reveal(civ, U.x - 7 - WIDE_DX, U.y - 6 - WIDE_DY);
                         dl = (jf - 1) & 127;
                         ke = 0;
                         if (turn_tick == 0)
@@ -256,7 +257,7 @@ rd:                            /* redraw map and units */
                     }
                     if (ptr_x < 80) {
                         if (ptr_y < 58) {
-                            reveal(civ, wrap_x(ptr_x + view_xorg - 7), clamp(ptr_y + view_yorg - 14, 0, 49));
+                            reveal(civ, wrap_x(ptr_x + view_xorg - 7 - WIDE_DX), clamp(ptr_y + view_yorg - 14 - WIDE_DY, 0, 49));
                         } else if (ptr_y < 72) {
                             mouse_off();
                             palpic(0L);
@@ -353,7 +354,7 @@ ck:                            /* mouse click */
                                         goto dn;
                                     }
                                 } else
-                                    reveal(civ, oq - 7, mc - 6);
+                                    reveal(civ, oq - 7 - WIDE_DX, mc - 6 - WIDE_DY);
                             }
                         }
                     }
@@ -654,9 +655,9 @@ uc:                            /* unit command */
                     switch (ek) {
                     case 'c':
                         if (xx != 0)
-                            reveal(civ, vj - 7, tl - 6);
+                            reveal(civ, vj - 7 - WIDE_DX, tl - 6 - WIDE_DY);
                         else
-                            reveal(civ, ku - 7, jv - 6);
+                            reveal(civ, ku - 7 - WIDE_DX, jv - 6 - WIDE_DY);
                         break;
                     case 8:
                     case 0x4700:
@@ -705,7 +706,7 @@ mv:                            /* move unit */
                             vj = wrap_x(spiral_x[ms] + vj);
                             tl = clamp(spiral_y[ms] + tl, 0, 49);
                             if (in_view(vj, tl) == 0)
-                                reveal(civ, vj - 8, tl - 7);
+                                reveal(civ, vj - 8 - WIDE_DX, tl - 7 - WIDE_DY);
                             break;
                         }
                         if (civ == 0 && U.type != 26) {
@@ -1224,8 +1225,8 @@ sc:                            /* scroll map */
                                 vj = U.x;
                                 tl = U.y;
                             } else {
-                                vj = map_x0 + 7;
-                                tl = map_y0 + 6;
+                                vj = wrap_x(map_x0 + view_cols / 2);
+                                tl = map_y0 + view_rows / 2;
                             }
                             if (map_visible_to[vj * 50 + tl] & (1 << civ))
                                 map_note(vj, tl);
@@ -1301,7 +1302,7 @@ dn:            ;               /* unit finished */
 fn:                            /* end of turn */
     if (civ == civnow) {
         mouse_off();
-        panel_prep(0, 97, 80, 103);
+        panel_prep(0, 97, 80, screen_h - 97);  /* civ-wasm: was 103 */
         mouse_on();
     }
     return;
@@ -1380,7 +1381,7 @@ void uinit(int player, int unit)
     int city_h, next_c, index_k, x29, y29, fraction_p, moves_m, flags_k;
     char cargo_m;
     mouse_off();
-    panel_prep(0, 97, 80, 103);
+    panel_prep(0, 97, 80, screen_h - 97);  /* civ-wasm: was 103 */
     if (unit == 128) {
         draw_string("End of Turn", 4, 124, 0);
         draw_string("Press Enter", 4, 136, 0);
@@ -1486,9 +1487,9 @@ extern int kbhit(void);
 
 int in_view(int x, int y)
 {
-    if (x < 16 && map_x0 >= 65)
+    if (x < 16 && map_x0 >= 80 - view_cols)
         x += 80;
-    if (x < map_x0 || x >= map_x0 + 15 || y < map_y0 || y >= map_y0 + 12)
+    if (x < map_x0 || x >= map_x0 + view_cols || y < map_y0 || y >= map_y0 + view_rows)
         return 0;
     return 1;
 }

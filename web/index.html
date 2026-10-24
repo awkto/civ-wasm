@@ -61,6 +61,14 @@
       <button class="primary" id="play" disabled>Play</button>
       <button id="forget" hidden>Forget game files</button>
     </div>
+    <label class="field">View
+      <select id="view">
+        <option value="2">Fit window, zoom 2× (more map)</option>
+        <option value="3">Fit window, zoom 3×</option>
+        <option value="1.5">Fit window, zoom 1.5× (most map)</option>
+        <option value="classic">Classic 320×200</option>
+      </select>
+    </label>
     <label class="field">Display
       <select id="filter">
         <option value="sharp">Crisp pixels</option>
@@ -186,9 +194,22 @@ $('forget').addEventListener('click', async () => {
   refresh();
 });
 
-// Remember the display choice (a per-browser convenience).
-try { const f = localStorage.getItem('civ-filter'); if (f) $('filter').value = f; } catch {}
-$('filter').addEventListener('change', () => { try { localStorage.setItem('civ-filter', $('filter').value); } catch {} });
+// Remember the display and view choices (a per-browser convenience).
+for (const [id, key] of [['filter', 'civ-filter'], ['view', 'civ-view']]) {
+  try { const v = localStorage.getItem(key); if (v) $(id).value = v; } catch {}
+  $(id).addEventListener('change', () => { try { localStorage.setItem(key, $(id).value); } catch {} });
+}
+
+// The game's screen for "fit window": as many game pixels as fit at the
+// chosen zoom (CSS pixels per game pixel), keeping the VGA's tall pixels.
+// The map fills it; other screens stay 320x200. Fixed once the game starts.
+function screenArg() {
+  const z = parseFloat($('view').value);
+  if (!z) return [];
+  const w = Math.max(320, Math.floor(innerWidth / z));
+  const h = Math.max(200, Math.floor(innerHeight / (z * 1.2)));
+  return ['--screen', `${w}x${h}`];
+}
 
 // The right button is the game's; keep the browser's menu away from it.
 document.addEventListener('contextmenu', e => { if (document.body.classList.contains('playing')) e.preventDefault(); });
@@ -204,7 +225,7 @@ $('play').addEventListener('click', () => {
   setInterval(save, 3000);
   addEventListener('pagehide', save);
   document.addEventListener('visibilitychange', () => document.hidden && save());
-  const args = ['-d', '/civ', '-s', '/saves', '--filter', $('filter').value, '--text-filter', 'same'];
+  const args = ['-d', '/civ', '-s', '/saves', '--filter', $('filter').value, '--text-filter', 'same', ...screenArg()];
   if ($('skip-quiz').checked) args.push('--skip-quiz');
   Module.callMain(args);
   // SDL sizes the canvas from its default window until the page resizes;

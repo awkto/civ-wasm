@@ -28,11 +28,11 @@ static enum reciv_text_filter text_filter = RECIV_TEXT_SHARP;
 static int split_text = 1;
 static SDL_Texture *filtered_texture;
 static uint32_t *filtered_pixels;
-static uint32_t frame_pixels[320 * 200];
+static uint32_t *frame_pixels;
 static SDL_Texture *text_texture;
 static SDL_Texture *text_scaled_texture;
 static int text_scaled_factor, text_filter_failed;
-static uint32_t text_pixels[320 * 200];
+static uint32_t *text_pixels;
 static SDL_BlendMode text_blend_mode;
 static int filter_failed;
 static uint16_t start_address;          /* CRTC start address, in 4-pixel units */
@@ -40,7 +40,15 @@ static void text_clear(void);
 static int video_mode = 3;
 static int dirty = 1;
 static uint64_t last_present;
-static SDL_FRect view;                   /* where the 320x200 picture is drawn */
+static SDL_FRect view;                   /* where the picture is drawn */
+/* civ-wasm: the screen is reciv_screen_w x reciv_screen_h; the part shown
+ * is all of it in wide view (the map), else the classic 320x200 corner.
+ * Either keeps the VGA's pixel shape: 320x200 filled a 4:3 monitor. */
+int reciv_wide_view;
+#define SW reciv_screen_w
+#define SH reciv_screen_h
+static int shown_w(void) { return reciv_wide_view ? SW : 320; }
+static int shown_h(void) { return reciv_wide_view ? SH : 200; }
 
 /* Presentation only: the VGA pixels stay original. */
 int reciv_video_filter(const char *name)
@@ -92,14 +100,18 @@ void reciv_video_open(void)
     renderer = SDL_CreateRenderer(window, NULL);
     if (!renderer)
         reciv_fatal("SDL_CreateRenderer: %s", SDL_GetError());
-    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING, 320, 200);
+    frame_pixels = SDL_malloc((size_t) SW * SH * sizeof(uint32_t));
+    text_pixels = SDL_malloc((size_t) SW * SH * sizeof(uint32_t));
+    if (!frame_pixels || !text_pixels)
+        reciv_fatal("no memory for a %dx%d screen", SW, SH);
+    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING, SW, SH);
     if (!texture)
         reciv_fatal("SDL_CreateTexture: %s", SDL_GetError());
     SDL_SetTextureScaleMode(texture, filter == RECIV_FILTER_BILINEAR ?
                             SDL_SCALEMODE_LINEAR : SDL_SCALEMODE_NEAREST);
     if (split_text) {
         text_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
-                                         SDL_TEXTUREACCESS_STREAMING, 320, 200);
+                                         SDL_TEXTUREACCESS_STREAMING, SW, SH);
         text_blend_mode = SDL_ComposeCustomBlendMode(
             SDL_BLENDFACTOR_ONE, SDL_BLENDFACTOR_ONE_MINUS_SRC_ALPHA, SDL_BLENDOPERATION_ADD,
             SDL_BLENDFACTOR_ONE, SDL_BLENDFACTOR_ONE_MINUS_SRC_ALPHA, SDL_BLENDOPERATION_ADD);
@@ -115,9 +127,9 @@ void reciv_video_open(void)
     }
     int factor = reciv_filter_factor(filter);
     if (factor) {
-        filtered_pixels = SDL_malloc((size_t) 320 * 200 * factor * factor * sizeof(uint32_t));
+        filtered_pixels = SDL_malloc((size_t) SW * SH * factor * factor * sizeof(uint32_t));
         filtered_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XRGB8888,
-            SDL_TEXTUREACCESS_STREAMING, 320 * factor, 200 * factor);
+            SDL_TEXTUREACCESS_STREAMING, SW * factor, SH * factor);
         if (!filtered_pixels || !filtered_texture) {
             reciv_log("graphics filter allocation failed; using nearest pixels");
             filter_failed = 1;
@@ -146,7 +158,7 @@ void reciv_video_set_mode(int mode)
 {
     video_mode = mode & 0x7F;
     if (video_mode == 0x13 && !(mode & 0x80)) {
-        memset(SCREEN, 0, 0x10000);
+        memset(reciv_screen_pixels(), 0, (size_t) SW * SH);
         reciv_page_layers_reset(0);
     }
     if (video_mode == 3)
@@ -287,10 +299,11 @@ static void layout(void)
 {
     int w, h;
     float scale;
+    float aw = (float) shown_w(), ah = shown_h() * 1.2f;
     SDL_GetWindowSizeInPixels(window, &w, &h);
-    scale = (float) w / 4 < (float) h / 3 ? (float) w / 4 : (float) h / 3;
-    view.w = 4 * scale;
-    view.h = 3 * scale;
+    scale = (float) w / aw < (float) h / ah ? (float) w / aw : (float) h / ah;
+    view.w = aw * scale;
+    view.h = ah * scale;
     view.x = (w - view.w) / 2;
     view.y = (h - view.h) / 2;
 }
@@ -302,24 +315,28 @@ static void layout(void)
 static void present_graphics(void)
 {
     SDL_Texture *display = texture;
+    int display_factor = 1;
     if (reciv_filter_factor(filter) && !filter_failed) {
         int factor = reciv_filter_factor(filter);
-        if (reciv_filter_scale(filter, frame_pixels, filtered_pixels) &&
-            SDL_UpdateTexture(filtered_texture, NULL, filtered_pixels, 320 * factor * (int) sizeof(uint32_t))) {
+        if (reciv_filter_scale(filter, frame_pixels, filtered_pixels, SW, SH) &&
+            SDL_UpdateTexture(filtered_texture, NULL, filtered_pixels, SW * factor * (int) sizeof(uint32_t))) {
             display = filtered_texture;
+            display_factor = factor;
         } else {
             reciv_log("graphics filter failed; using nearest pixels");
             filter_failed = 1;
         }
     }
     if (filter == RECIV_FILTER_SHARP && !filter_failed) {
-        float sx = view.w / 320, sy = view.h / 200;
+        float sx = view.w / shown_w(), sy = view.h / shown_h();
         int factor = (int) (sx < sy ? sx : sy);
         factor = factor < 1 ? 1 : factor > 6 ? 6 : factor;
+        while (factor > 1 && (SW * factor > 4096 || SH * factor > 4096))
+            factor--;
         if (!scaled_texture || factor != scaled_factor) {
             SDL_DestroyTexture(scaled_texture);
             scaled_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XRGB8888,
-                                               SDL_TEXTUREACCESS_TARGET, 320 * factor, 200 * factor);
+                                               SDL_TEXTUREACCESS_TARGET, SW * factor, SH * factor);
             scaled_factor = factor;
             if (!scaled_texture || !SDL_SetTextureScaleMode(scaled_texture, SDL_SCALEMODE_LINEAR))
                 filter_failed = 1;
@@ -330,9 +347,10 @@ static void present_graphics(void)
                 bool copied = SDL_RenderTexture(renderer, texture, NULL, NULL);
                 if (!SDL_SetRenderTarget(renderer, NULL))
                     reciv_fatal("restore window render target: %s", SDL_GetError());
-                if (copied)
+                if (copied) {
                     display = scaled_texture;
-                else
+                    display_factor = factor;
+                } else
                     filter_failed = 1;
             } else {
                 filter_failed = 1;
@@ -344,20 +362,24 @@ static void present_graphics(void)
             scaled_texture = NULL;
         }
     }
-    SDL_RenderTexture(renderer, display, NULL, &view);
+    SDL_FRect part = { 0, 0, (float) shown_w() * display_factor, (float) shown_h() * display_factor };
+    SDL_RenderTexture(renderer, display, &part, &view);
 }
 
 static void present_graphics_text(void)
 {
     SDL_Texture *display = text_texture;
+    int display_factor = 1;
     if (text_filter == RECIV_TEXT_SHARP && !text_filter_failed) {
-        float sx = view.w / 320, sy = view.h / 200;
+        float sx = view.w / shown_w(), sy = view.h / shown_h();
         int factor = (int) (sx < sy ? sx : sy);
         factor = factor < 1 ? 1 : factor > 6 ? 6 : factor;
+        while (factor > 1 && (SW * factor > 4096 || SH * factor > 4096))
+            factor--;
         if (!text_scaled_texture || factor != text_scaled_factor) {
             SDL_DestroyTexture(text_scaled_texture);
             text_scaled_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
-                SDL_TEXTUREACCESS_TARGET, 320 * factor, 200 * factor);
+                SDL_TEXTUREACCESS_TARGET, SW * factor, SH * factor);
             text_scaled_factor = factor;
             if (!text_scaled_texture ||
                 !SDL_SetTextureScaleMode(text_scaled_texture, SDL_SCALEMODE_LINEAR) ||
@@ -373,9 +395,10 @@ static void present_graphics_text(void)
                 SDL_SetTextureBlendMode(text_texture, text_blend_mode);
                 if (!SDL_SetRenderTarget(renderer, NULL))
                     reciv_fatal("restore window render target: %s", SDL_GetError());
-                if (copied)
+                if (copied) {
                     display = text_scaled_texture;
-                else
+                    display_factor = factor;
+                } else
                     text_filter_failed = 1;
             } else {
                 text_filter_failed = 1;
@@ -387,7 +410,8 @@ static void present_graphics_text(void)
             text_scaled_texture = NULL;
         }
     }
-    SDL_RenderTexture(renderer, display, NULL, &view);
+    SDL_FRect part = { 0, 0, (float) shown_w() * display_factor, (float) shown_h() * display_factor };
+    SDL_RenderTexture(renderer, display, &part, &view);
 }
 
 /* Show the screen; at most once per video frame unless forced. */
@@ -413,21 +437,22 @@ void reciv_video_present(int force)
         return;
     }
     uint32_t offset = (uint32_t) start_address * 4;
-    const uint8_t *src = reciv_mem + 0xA0000 + offset;
+    const uint8_t *src = reciv_screen_pixels() + offset;
+    const int pixels = SW * SH - (int) offset;
     const uint8_t *text_mask = NULL;
     if (split_text) {
         const uint8_t *background = reciv_page_background(0) + offset;
         text_mask = reciv_page_text_mask(0) + offset;
-        for (int i = 0; i < 320 * 200; ++i) {
+        for (int i = 0; i < pixels; ++i) {
             frame_pixels[i] = palette[background[i]];
             text_pixels[i] = text_mask[i] ? 0xFF000000u | palette[src[i]] : 0;
         }
-        SDL_UpdateTexture(text_texture, NULL, text_pixels, 320 * (int) sizeof(uint32_t));
+        SDL_UpdateTexture(text_texture, NULL, text_pixels, SW * (int) sizeof(uint32_t));
     } else {
-        for (int i = 0; i < 320 * 200; ++i)
+        for (int i = 0; i < pixels; ++i)
             frame_pixels[i] = palette[src[i]];
     }
-    SDL_UpdateTexture(texture, NULL, frame_pixels, 320 * (int) sizeof(uint32_t));
+    SDL_UpdateTexture(texture, NULL, frame_pixels, SW * (int) sizeof(uint32_t));
     present_graphics();
     if (split_text)
         present_graphics_text();
@@ -446,10 +471,10 @@ static void mouse_moved(float wx, float wy)
     int x, y;
     SDL_RenderCoordinatesFromWindow(renderer, wx, wy, &px, &py);
     layout();
-    x = (int) ((px - view.x) * 320 / view.w);
-    y = (int) ((py - view.y) * 200 / view.h);
-    x = x < 0 ? 0 : x > 319 ? 319 : x;
-    y = y < 0 ? 0 : y > 199 ? 199 : y;
+    x = (int) ((px - view.x) * shown_w() / view.w);
+    y = (int) ((py - view.y) * shown_h() / view.h);
+    x = x < 0 ? 0 : x > shown_w() - 1 ? shown_w() - 1 : x;
+    y = y < 0 ? 0 : y > shown_h() - 1 ? shown_h() - 1 : y;
     reciv_mouse_event(x, y, mouse_buttons);
 }
 
@@ -458,8 +483,8 @@ void reciv_mouse_warp(int x, int y)
 {
     float wx, wy;
     layout();
-    SDL_RenderCoordinatesToWindow(renderer, view.x + (x + 0.5f) * view.w / 320,
-                                  view.y + (y + 0.5f) * view.h / 200, &wx, &wy);
+    SDL_RenderCoordinatesToWindow(renderer, view.x + (x + 0.5f) * view.w / shown_w(),
+                                  view.y + (y + 0.5f) * view.h / shown_h(), &wx, &wy);
     if (SDL_GetMouseFocus() == window)
         SDL_WarpMouseInWindow(window, wx, wy);
 }

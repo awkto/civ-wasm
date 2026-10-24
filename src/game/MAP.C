@@ -1,3 +1,4 @@
+#include "WIDE.H"                /* civ-wasm */
 #include <dos.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -73,32 +74,38 @@ void reveal(int player, int x, int y)
     status_draw();
     s = stk_plr;
     map_x0 = wrap_x(x);
-    map_y0 = clamp(y, 0, 38);
+    map_y0 = clamp(y, 0, 50 - view_rows);
+    wide_view(1);
     player = 1 << player;
     city_label_n = 0;
     r1 = rand_scaled(256);
     for (i = 0; i < 256; i++) {
-        cx_c = r1 & 0xf;
-        ty = r1 >> 4;
-        if (ty < 12 && cx_c < 15) {
+        /* civ-wasm: the 16 x 16 dissolve order, repeated over a larger view. */
+        int bx, by;
+        for (by = 0; by < view_rows; by += 16)
+            for (bx = 0; bx < view_cols; bx += 16) {
+        cx_c = (r1 & 0xf) + bx;
+        ty = (r1 >> 4) + by;
+        if (ty < view_rows && cx_c < view_cols) {
             if (xray_on != 0 || (map_visible_to[wrap_x(cx_c + map_x0) * 50 + ty + map_y0] & player)) {
                 map_note(wrap_x(cx_c + map_x0), ty + map_y0);
             } else {
                 rect_fill(scrbuf, (cx_c << 4) + 80, (ty << 4) + 8, 16, 16, 0);
             }
         }
+            }
         r1 = (unsigned char) (r1 * 5 + 1);
     }
     for (i = 0; i < city_label_n; i++) {
-        if (map_label_yorg[i] < 184) {
+        if (map_label_yorg[i] < screen_h - 16) {
             msgtext[0] = 0;
             append_place_name(label_no[i]);
-            truncate_text(msgtext, 327 - map_label_xorg[i]);
+            truncate_text(msgtext, screen_w + 7 - map_label_xorg[i]);
             draw_shadowed(msgtext, clamp(map_label_xorg[i] - 8, 80, 999), map_label_yorg[i] + 16, 11);
         }
     }
-    sx = x - 32;
-    sy = y - 19;
+    sx = x - (40 - (view_cols + 1) / 2);
+    sy = y - (25 - view_rows / 2);
     if (has_tech(player, 8)) {
         sy = 0;
     }
@@ -138,7 +145,7 @@ void reveal(int player, int x, int y)
         }
     }
     draw_panel(0, 8, 79, 49, 15, 8);
-    draw_box(x - sx - 1, y - sy + 7, 17, 10, 15);
+    draw_box(x - sx - 1, y - sy + 7, view_cols + 2, view_rows - 2, 15);
     stk_plr = s;
     mouse_on();
 }
@@ -171,7 +178,7 @@ int seen_map(int x, int y)
     }
     sx = (wrap_x(x - map_x0) << 4) + 80;
     y2 = ((y - map_y0) << 4) + 8;
-    if (sx < 80 || sx >= 320 || y2 < 8 || y2 > 192)
+    if (sx < 80 || sx >= screen_w || y2 < 8 || y2 > screen_h - 8)
         return 0;
     ter = terrain_at(x, y);
     seen = known_flags(x, y);
@@ -344,7 +351,7 @@ int unit_redraw(int player, int unit)
         sx = wrap_x(armydata[player][unit].x - map_x0) << 4;
         sy = ((armydata[player][unit].y - map_y0) << 4) + 8;
         sx += 0x50;
-        if (sx < 0x50 || sx >= 0x140 || sy < 8 || sy > 0xc0)
+        if (sx < 0x50 || sx >= screen_w || sy < 8 || sy > screen_h - 8)
             return 0;
         dom = armydata[player][unit].type;
         terr = terrain_at(armydata[player][unit].x, armydata[player][unit].y);

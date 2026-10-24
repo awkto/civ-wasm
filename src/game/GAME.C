@@ -1,3 +1,4 @@
+#include "WIDE.H"                /* civ-wasm */
 /* Main module: resident code segment 01A8 (main, mouse and screen helpers,
    disk prompt, break handlers, title menu) and the game rule tables in
    DGROUP 00AC..1C20. Compiled with /AM /Gs /Oas. Names are provisional. */
@@ -564,8 +565,8 @@ int main(void)
     game_menu();
     start_game();
     if (main_option_result == 1) {
-        map_x0 = x_cap[civnow] - 7;
-        map_y0 = 19;
+        map_x0 = x_cap[civnow] - view_cols / 2;
+        map_y0 = 25 - view_rows / 2;
         sel_player();
     }
     leave = 0;

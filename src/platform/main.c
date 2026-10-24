@@ -96,7 +96,30 @@ int main(int argc, char **argv)
                 usage();
         } else if (!strcmp(argv[i], "--no-filter"))
             reciv_video_filter("nearest");
-        else if (!strcmp(argv[i], "--skip-quiz"))
+        else if (!strcmp(argv[i], "--screen") && i + 1 < argc) {
+            /* civ-wasm: a larger screen, WxH, for a wider map. */
+            int w, h;
+            if (sscanf(argv[++i], "%dx%d", &w, &h) != 2 || w < 320 || h < 200 || w > 2048 || h > 2048)
+                usage();
+            /* Whole tiles right of the panel and under the menu bar. */
+            {
+                extern int16_t view_cols, view_rows, screen_w, screen_h;
+                view_cols = (int16_t) ((w - 80) / 16 > 80 ? 80 : (w - 80) / 16);
+                view_rows = (int16_t) ((h - 8) / 16 > 50 ? 50 : (h - 8) / 16);
+                reciv_screen_w = screen_w = (int16_t) (80 + 16 * view_cols);
+                reciv_screen_h = screen_h = (int16_t) (8 + 16 * view_rows);
+            }
+            {
+                /* The page records clip lines and sprites at their right
+                 * and bottom (struct page: number, left, top, right, bottom). */
+                extern int16_t screen_page[9], page1[9], page2[9], page3[9];
+                int16_t *records[] = { screen_page, page1, page2, page3 };
+                for (int r = 0; r < 4; r++) {
+                    records[r][3] = (int16_t) (reciv_screen_w - 1);
+                    records[r][4] = (int16_t) (reciv_screen_h - 1);
+                }
+            }
+        } else if (!strcmp(argv[i], "--skip-quiz"))
             reciv_skip_quiz = 1;
         else if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help"))
             usage();
@@ -113,6 +136,7 @@ int main(int argc, char **argv)
     }
 #endif
     reciv_mem_init();
+    reciv_pages_init();
     reciv_resident_data_init();
     reciv_video_open();
     reciv_video_set_mode(3);             /* DOS starts in 80x25 text */
