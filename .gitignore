@@ -1,1 +1,6 @@
 /build*/
+
+# civ-wasm: original game data (never committed)
+/gamedata/
+/emsdk/
+__pycache__/

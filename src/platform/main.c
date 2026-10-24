@@ -13,7 +13,14 @@
 #include "reciv.h"
 
 /* The game's main: int main(int argc, char **argv) in period types. */
+#ifdef __EMSCRIPTEN__
+/* civ-wasm: GAME.C defines it as int main(void), and wasm will not link a
+ * call that disagrees. */
+extern int16_t game_main(void);
+#define game_main(argc, argv) game_main()
+#else
 extern int16_t game_main(int16_t argc, char **argv);
+#endif
 
 void reciv_video_close(void);
 void reciv_resident_data_init(void);

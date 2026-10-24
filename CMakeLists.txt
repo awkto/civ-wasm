@@ -16,12 +16,39 @@ if(CMAKE_C_COMPILER_ID STREQUAL "MSVC")
     set(RECIV_WARNINGS /W3)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS _CRT_NONSTDC_NO_WARNINGS)
+elseif(EMSCRIPTEN)
+    # civ-wasm: Emscripten's Clang, with SDL3 from Emscripten's ports.
+    set(RECIV_WARNINGS -Wall -Wextra)
 elseif(CMAKE_C_COMPILER_ID STREQUAL "GNU" AND NOT CMAKE_C_COMPILER_VERSION VERSION_LESS 14)
     set(RECIV_WARNINGS -Wall -Wextra)
 else()
     message(FATAL_ERROR "Use GCC 14+ or opt-in MSVC (-DRECIV_MSVC=ON)")
 endif()
-find_package(SDL3 REQUIRED CONFIG)
+if(EMSCRIPTEN)
+    # civ-wasm: emcc links through a copy of its LLVM directory whose wasm-ld
+    # adapts the period code's mismatched calls (tools/wasm).
+    execute_process(COMMAND em-config LLVM_ROOT OUTPUT_VARIABLE CIVWASM_LLVM_ROOT
+        OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+    set(CIVWASM_LLVM "${CMAKE_BINARY_DIR}/civwasm-llvm")
+    file(MAKE_DIRECTORY "${CIVWASM_LLVM}")
+    file(GLOB CIVWASM_LLVM_TOOLS "${CIVWASM_LLVM_ROOT}/*")
+    foreach(tool IN LISTS CIVWASM_LLVM_TOOLS)
+        get_filename_component(name "${tool}" NAME)
+        if(NOT name STREQUAL "wasm-ld")
+            file(CREATE_LINK "${tool}" "${CIVWASM_LLVM}/${name}" SYMBOLIC)
+        endif()
+    endforeach()
+    file(CREATE_LINK "${CMAKE_CURRENT_SOURCE_DIR}/tools/wasm/wasm-ld" "${CIVWASM_LLVM}/wasm-ld" SYMBOLIC)
+    file(WRITE "${CIVWASM_LLVM}/.real-llvm-root" "${CIVWASM_LLVM_ROOT}")
+    file(WRITE "${CIVWASM_LLVM}/.fixer"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/wasm/fix-signature-mismatch.py")
+    set(CMAKE_C_LINKER_LAUNCHER "${CMAKE_COMMAND};-E;env;EM_LLVM_ROOT=${CIVWASM_LLVM};EMCC_SKIP_SANITY_CHECK=1")
+    add_library(SDL3::SDL3 INTERFACE IMPORTED)
+    target_compile_options(SDL3::SDL3 INTERFACE --use-port=sdl3)
+    target_link_options(SDL3::SDL3 INTERFACE --use-port=sdl3)
+else()
+    find_package(SDL3 REQUIRED CONFIG)
+endif()
 
 # RECIV_ASAN enables AddressSanitizer for the Linux GCC build.
 option(RECIV_ASAN "Build with AddressSanitizer" OFF)
@@ -51,6 +78,14 @@ if(MSVC)
     # promise; build the period code unoptimized so it is not exploited.
     target_compile_options(period PRIVATE /TC /X /Oi- /Od /Ob0 /w /utf-8
         "/FI${CMAKE_CURRENT_SOURCE_DIR}/src/period/prelude.h")
+elseif(EMSCRIPTEN)
+    # Clang has no -fpermissive; demote the errors GCC's permissive mode allowed.
+    target_compile_options(period PRIVATE
+        -x c -nostdinc -fno-builtin -fwrapv -fno-strict-aliasing -fsigned-char
+        -Wno-error=int-conversion -Wno-error=incompatible-pointer-types
+        -Wno-error=implicit-function-declaration -Wno-error=implicit-int
+        -Wno-error=return-type -Wno-error=incompatible-function-pointer-types -w
+        -include "${CMAKE_CURRENT_SOURCE_DIR}/src/period/prelude.h")
 else()
     target_compile_options(period PRIVATE
         -x c -nostdinc -fno-builtin -fwrapv -fno-strict-aliasing -fsigned-char
@@ -73,7 +108,14 @@ else()
 endif()
 
 # The host side: the period C run-time and the platform, ordinary C.
-add_library(reciv-core STATIC
+# civ-wasm: plain objects, not an archive, so that wasm-ld sees every
+# definition and adapts every mismatched call (tools/wasm/wasm-ld).
+if(EMSCRIPTEN)
+    set(RECIV_CORE_KIND OBJECT)
+else()
+    set(RECIV_CORE_KIND STATIC)
+endif()
+add_library(reciv-core ${RECIV_CORE_KIND}
     $<TARGET_OBJECTS:period>
     src/platform/asound-sequence.c
     src/platform/asound-voice.c
@@ -102,6 +144,22 @@ target_link_libraries(reciv-core PUBLIC SDL3::SDL3 reciv-filters)
 add_executable(reciv src/platform/main.c)
 target_compile_options(reciv PRIVATE ${RECIV_WARNINGS})
 target_link_libraries(reciv PRIVATE reciv-core)
+if(EMSCRIPTEN)
+    # An object library does not pass on the period objects it lists.
+    target_sources(reciv PRIVATE $<TARGET_OBJECTS:period>)
+    # civ-wasm: the game blocks in reciv_poll's SDL_DelayNS; Asyncify turns
+    # those waits into returns to the browser's event loop.
+    target_link_options(reciv PRIVATE
+        -sASYNCIFY -sASYNCIFY_STACK_SIZE=262144 -sSTACK_SIZE=1048576
+        -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=134217728
+        -sFORCE_FILESYSTEM -lidbfs.js -sENVIRONMENT=web
+        -sEXPORTED_RUNTIME_METHODS=FS,callMain -sINVOKE_RUN=0)
+    # Development only: bake a local copy of the original game into reciv.data.
+    set(CIVWASM_PRELOAD "" CACHE PATH "Original Civilization directory to preload as /civ")
+    if(CIVWASM_PRELOAD)
+        target_link_options(reciv PRIVATE "--preload-file=${CIVWASM_PRELOAD}@/civ")
+    endif()
+endif()
 if(WIN32)
     # Keep compiler and thread runtimes inside the executable; bundle only SDL.
     if(MINGW)

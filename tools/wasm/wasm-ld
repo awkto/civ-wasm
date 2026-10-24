@@ -1,0 +1,17 @@
+#!/bin/sh
+# civ-wasm: wasm-ld, then the signature-mismatch adapters. The build points
+# emcc at a copy of its LLVM directory where wasm-ld is this script.
+# The stubs wasm-ld makes for mismatched calls do not reference the real
+# function, so section GC would drop it; Binaryen removes what stays unused.
+here=$(dirname "$0")
+"$(cat "$here/.real-llvm-root")/wasm-ld" --no-gc-sections "$@" || exit
+out=
+while [ $# -gt 0 ]; do
+    case $1 in
+        -o) out=$2; shift ;;
+        -o*) out=${1#-o} ;;
+    esac
+    shift
+done
+[ -n "$out" ] && [ -n "$CIVWASM_KEEP_RAW" ] && cp "$out" "$out.raw"
+[ -n "$out" ] && exec python3 "$(cat "$here/.fixer")" "$out"
