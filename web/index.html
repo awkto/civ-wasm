@@ -13,7 +13,8 @@
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
     font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
   #canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh;
-    display: block; background: #000; outline: none; touch-action: none; visibility: hidden; }
+    display: block; background: #000; outline: none; touch-action: none; visibility: hidden;
+    image-rendering: pixelated; }
   body.playing #canvas { visibility: visible; }
   body.playing #loader { display: none; }
   #loader { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -29,6 +30,9 @@
   button:hover, label.btn:hover { filter: brightness(1.15); }
   button:disabled { opacity: .5; cursor: default; filter: none; }
   label.btn input { display: none; }
+  .field { display: flex; gap: 8px; align-items: center; color: var(--muted); margin-top: 14px; }
+  select { font: inherit; background: #222836; color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 8px; }
   .check { display: flex; gap: 8px; align-items: center; color: var(--muted); margin-top: 14px; }
   #status { min-height: 1.5em; margin-top: 12px; color: var(--muted); }
   #status.error { color: var(--error); }
@@ -57,6 +61,14 @@
       <button class="primary" id="play" disabled>Play</button>
       <button id="forget" hidden>Forget game files</button>
     </div>
+    <label class="field">Display
+      <select id="filter">
+        <option value="sharp">Crisp pixels</option>
+        <option value="nearest">Raw pixels (uneven at some sizes)</option>
+        <option value="hq4x">Smoothed (hq4x)</option>
+        <option value="bilinear">Blurred (bilinear)</option>
+      </select>
+    </label>
     <label class="check"><input type="checkbox" id="skip-quiz" checked> Skip the copy-protection quiz</label>
     <div id="status">Starting…</div>
     <details>
@@ -174,6 +186,13 @@ $('forget').addEventListener('click', async () => {
   refresh();
 });
 
+// Remember the display choice (a per-browser convenience).
+try { const f = localStorage.getItem('civ-filter'); if (f) $('filter').value = f; } catch {}
+$('filter').addEventListener('change', () => { try { localStorage.setItem('civ-filter', $('filter').value); } catch {} });
+
+// The right button is the game's; keep the browser's menu away from it.
+document.addEventListener('contextmenu', e => { if (document.body.classList.contains('playing')) e.preventDefault(); });
+
 $('play').addEventListener('click', () => {
   document.body.classList.add('playing');
   const canvas = $('canvas');
@@ -185,9 +204,12 @@ $('play').addEventListener('click', () => {
   setInterval(save, 3000);
   addEventListener('pagehide', save);
   document.addEventListener('visibilitychange', () => document.hidden && save());
-  const args = ['-d', '/civ', '-s', '/saves'];
+  const args = ['-d', '/civ', '-s', '/saves', '--filter', $('filter').value, '--text-filter', 'same'];
   if ($('skip-quiz').checked) args.push('--skip-quiz');
   Module.callMain(args);
+  // SDL sizes the canvas from its default window until the page resizes;
+  // tell it about the real size now that the window exists.
+  dispatchEvent(new Event('resize'));
 });
 
 $('fullscreen').addEventListener('click', () => {

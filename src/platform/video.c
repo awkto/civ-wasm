@@ -77,7 +77,16 @@ void reciv_video_open(void)
 {
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS))
         reciv_fatal("SDL_Init: %s", SDL_GetError());
+#ifdef __EMSCRIPTEN__
+    /* civ-wasm: draw at the display's pixel density, so the browser does not
+     * smooth the canvas again on a high-DPI screen. OPENGL up front: otherwise
+     * the WebGL renderer recreates the window, and the recreated one no longer
+     * follows the canvas's CSS size. */
+    window = SDL_CreateWindow("Civilization", 960, 720,
+                              SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_OPENGL);
+#else
     window = SDL_CreateWindow("Civilization", 960, 720, SDL_WINDOW_RESIZABLE);
+#endif
     if (!window)
         reciv_fatal("SDL_CreateWindow: %s", SDL_GetError());
     renderer = SDL_CreateRenderer(window, NULL);
