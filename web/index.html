@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Civilization</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Ccircle cx=%228%22 cy=%228%22 r=%227%22 fill=%22%232a6fb0%22/%3E%3Cpath d=%22M4 6h3v5H4zM9 4h3v4H9z%22 fill=%22%235aa04a%22/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #0b0d12; --panel: #161a22; --text: #e8e4d8; --muted: #9a968b;
+    --accent: #d9b45a; --border: #2a303c; --error: #e0735f;
+  }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+  #canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh;
+    display: block; background: #000; outline: none; touch-action: none; visibility: hidden; }
+  body.playing #canvas { visibility: visible; }
+  body.playing #loader { display: none; }
+  #loader { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    padding: 16px; box-sizing: border-box; overflow: auto; }
+  .card { max-width: 520px; width: 100%; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 28px; box-sizing: border-box; }
+  h1 { margin: 0 0 4px; font-size: 26px; letter-spacing: .02em; color: var(--accent); }
+  .sub { margin: 0 0 20px; color: var(--muted); }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0 8px; }
+  button, label.btn { appearance: none; border: 1px solid var(--border); background: #222836; color: var(--text);
+    font: inherit; padding: 9px 16px; border-radius: 7px; cursor: pointer; }
+  button.primary { background: var(--accent); color: #1a1505; border-color: var(--accent); font-weight: 600; }
+  button:hover, label.btn:hover { filter: brightness(1.15); }
+  button:disabled { opacity: .5; cursor: default; filter: none; }
+  label.btn input { display: none; }
+  .check { display: flex; gap: 8px; align-items: center; color: var(--muted); margin-top: 14px; }
+  #status { min-height: 1.5em; margin-top: 12px; color: var(--muted); }
+  #status.error { color: var(--error); }
+  details { margin-top: 18px; color: var(--muted); font-size: 13px; }
+  summary { cursor: pointer; }
+  #toolbar { position: fixed; top: 8px; right: 8px; z-index: 10; display: none; gap: 6px; opacity: .25;
+    transition: opacity .2s; }
+  #toolbar:hover, #toolbar:focus-within { opacity: 1; }
+  body.playing #toolbar { display: flex; }
+  #toolbar button { padding: 5px 10px; font-size: 13px; background: rgba(20,24,32,.85); }
+  .drop { outline: 2px dashed var(--accent); outline-offset: 4px; }
+</style>
+</head>
+<body>
+<div id="loader">
+  <div class="card" id="card">
+    <h1>Sid Meier's Civilization</h1>
+    <p class="sub">The 1991 DOS game, rebuilt from source and running in your browser.</p>
+    <p>You need your own copy of the original game files. Choose the game's folder,
+       a .zip of it, or drop either here. The files stay in this browser and are never uploaded.</p>
+    <div class="row">
+      <label class="btn">Choose folder…<input type="file" id="pick-dir" webkitdirectory multiple></label>
+      <label class="btn">Choose .zip or files…<input type="file" id="pick-files" accept=".zip,.pic,.pal,.txt,.cvl,.exe,.cv" multiple></label>
+    </div>
+    <div class="row">
+      <button class="primary" id="play" disabled>Play</button>
+      <button id="forget" hidden>Forget game files</button>
+    </div>
+    <label class="check"><input type="checkbox" id="skip-quiz" checked> Skip the copy-protection quiz</label>
+    <div id="status">Starting…</div>
+    <details>
+      <summary>About</summary>
+      <p>Game logic from <a href="https://github.com/sjmelia/civd">civd</a>, a reverse-engineered
+         reconstruction of the DOS source; platform layer from
+         <a href="https://github.com/sjmelia/reciv">reciv</a>; compiled to WebAssembly.
+         Saved games are kept in this browser. Mouse and keyboard work as in the original.</p>
+    </details>
+  </div>
+</div>
+<div id="toolbar">
+  <button id="fullscreen" title="Fullscreen (F11)">Fullscreen</button>
+</div>
+<canvas id="canvas" tabindex="-1"></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
+<script>
+// Files every copy of Civilization has; used to check what the player chose.
+const REQUIRED = ['TER257.PIC', 'SP257.PIC', 'KING00.PIC', 'BIRTH0.PIC'];
+const $ = id => document.getElementById(id);
+const status = (text, error) => { $('status').textContent = text; $('status').classList.toggle('error', !!error); };
+
+let ready;               // resolves when the runtime has mounted and synced the file systems
+const readyPromise = new Promise(r => ready = r);
+
+const syncfs = populate => new Promise((resolve, reject) =>
+  FS.syncfs(populate, err => err ? reject(err) : resolve()));
+
+const haveGame = () => {
+  try {
+    const names = FS.readdir('/civ').map(n => n.toUpperCase());
+    return REQUIRED.every(f => names.includes(f));
+  } catch { return false; }
+};
+
+function refresh() {
+  const ok = haveGame();
+  $('play').disabled = !ok;
+  $('forget').hidden = !ok;
+  status(ok ? 'Game files found in this browser. Ready to play.' : 'Choose your Civilization files to begin.');
+}
+
+var Module = {
+  canvas: $('canvas'),
+  print: t => console.log(t),
+  printErr: t => console.warn(t),
+  onRuntimeInitialized: async () => {
+    for (const dir of ['/civ', '/saves']) {
+      FS.mkdir(dir);
+      FS.mount(IDBFS, {}, dir);
+    }
+    try { await syncfs(true); } catch (e) { console.warn('IndexedDB unavailable', e); }
+    ready();
+    refresh();
+  },
+};
+
+// Accept a mix of plain files and zips; keep only base names, upper-cased as on DOS.
+async function collect(fileList) {
+  const out = new Map();
+  for (const file of fileList) {
+    const buf = new Uint8Array(await file.arrayBuffer());
+    if (/\.zip$/i.test(file.name)) {
+      const entries = fflate.unzipSync(buf);
+      for (const [path, data] of Object.entries(entries))
+        if (!path.endsWith('/')) out.set(path.split('/').pop().toUpperCase(), data);
+    } else {
+      out.set(file.name.toUpperCase(), buf);
+    }
+  }
+  return out;
+}
+
+async function install(fileList) {
+  await readyPromise;
+  status('Reading files…');
+  let files;
+  try { files = await collect(fileList); }
+  catch (e) { return status('Could not read those files: ' + e.message, true); }
+  const missing = REQUIRED.filter(f => !files.has(f));
+  if (missing.length)
+    return status(`That doesn't look like Civilization (missing ${missing.join(', ')}).`, true);
+  for (const name of FS.readdir('/civ')) if (name !== '.' && name !== '..') FS.unlink('/civ/' + name);
+  for (const [name, data] of files) FS.writeFile('/civ/' + name, data);
+  try { await syncfs(false); } catch (e) { console.warn('could not persist game files', e); }
+  refresh();
+  status(`Loaded ${files.size} files. Ready to play.`);
+}
+
+$('pick-dir').addEventListener('change', e => install(e.target.files));
+$('pick-files').addEventListener('change', e => install(e.target.files));
+
+const card = $('card');
+card.addEventListener('dragover', e => { e.preventDefault(); card.classList.add('drop'); });
+card.addEventListener('dragleave', () => card.classList.remove('drop'));
+card.addEventListener('drop', async e => {
+  e.preventDefault();
+  card.classList.remove('drop');
+  // Folders arrive as directory entries; walk them.
+  const items = [...e.dataTransfer.items].map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+  const files = [];
+  const walk = entry => new Promise(resolve => {
+    if (entry.isFile) entry.file(f => { files.push(f); resolve(); }, resolve);
+    else entry.createReader().readEntries(async list => { await Promise.all(list.map(walk)); resolve(); }, resolve);
+  });
+  if (items.length) await Promise.all(items.map(walk));
+  else files.push(...e.dataTransfer.files);
+  install(files);
+});
+
+$('forget').addEventListener('click', async () => {
+  for (const name of FS.readdir('/civ')) if (name !== '.' && name !== '..') FS.unlink('/civ/' + name);
+  await syncfs(false).catch(() => {});
+  refresh();
+});
+
+$('play').addEventListener('click', () => {
+  document.body.classList.add('playing');
+  const canvas = $('canvas');
+  canvas.focus();
+  canvas.addEventListener('pointerdown', () => canvas.focus());
+  // Saved games land in /saves; copy them to IndexedDB every few seconds and on leaving.
+  let syncing = false;
+  const save = () => { if (syncing) return; syncing = true; syncfs(false).catch(() => {}).finally(() => syncing = false); };
+  setInterval(save, 3000);
+  addEventListener('pagehide', save);
+  document.addEventListener('visibilitychange', () => document.hidden && save());
+  const args = ['-d', '/civ', '-s', '/saves'];
+  if ($('skip-quiz').checked) args.push('--skip-quiz');
+  Module.callMain(args);
+});
+
+$('fullscreen').addEventListener('click', () => {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen?.().catch(() => {});
+  $('canvas').focus();
+});
+
+// The game cannot quit back to a page; reload when it ends.
+Module.onExit = () => location.reload();
+</script>
+<script src="reciv.js"></script>
+</body>
+</html>

@@ -153,7 +153,7 @@ if(EMSCRIPTEN)
         -sASYNCIFY -sASYNCIFY_STACK_SIZE=262144 -sSTACK_SIZE=1048576
         -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=134217728
         -sFORCE_FILESYSTEM -lidbfs.js -sENVIRONMENT=web
-        -sEXPORTED_RUNTIME_METHODS=FS,callMain -sINVOKE_RUN=0)
+        -sEXPORTED_RUNTIME_METHODS=FS,IDBFS,callMain -sINVOKE_RUN=0)
     # Development only: bake a local copy of the original game into reciv.data.
     set(CIVWASM_PRELOAD "" CACHE PATH "Original Civilization directory to preload as /civ")
     if(CIVWASM_PRELOAD)

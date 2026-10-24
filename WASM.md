@@ -4,17 +4,29 @@ reciv built for the browser with Emscripten. The upstream reciv README
 describes the game and the native builds; this file covers the WebAssembly
 build only. Changes to upstream code are marked `civ-wasm:`.
 
+## Playing
+
+The page (`web/index.html`) asks for the original game files: a folder, a
+.zip, or loose files, chosen or dropped onto the page. They are kept in the
+browser's IndexedDB, so later visits start straight away. Saved games are kept
+there too (synced every few seconds). The canvas fills the window and the game
+keeps a 4:3 picture inside it; mouse and keyboard work as in the original.
+
+Pushes to `main` build and publish the site to GitHub Pages
+(`.github/workflows/pages.yml`). Upstream's Linux and Windows workflows are
+disabled in this repository.
+
 ## Building
 
 Install the [Emscripten SDK](https://emscripten.org/docs/getting_started/downloads.html)
 in `~/emsdk` (or set `EMSDK`), plus CMake and Ninja. Then:
 
-    tools/wasm/build.sh gamedata/CIV
-    cd build-wasm && python3 -m http.server 8765
-    # open http://localhost:8765/dev.html
+    tools/wasm/build.sh                # site in build-web/site/
+    cd build-web/site && python3 -m http.server 8765
 
-The argument is a directory holding the original game files. It is packed
-into `reciv.data` for local testing, so never publish that build. SDL3 comes
+With a game directory as the argument (`tools/wasm/build.sh gamedata/CIV`),
+the files are baked into `build-wasm/reciv.data` and `dev.html` starts the
+game straight away, for local testing. Never publish that build. SDL3 comes
 from Emscripten's ports.
 
 ## How it differs from the native build
