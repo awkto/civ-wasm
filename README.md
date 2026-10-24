@@ -1,3 +1,15 @@
+# civ-wasm
+
+**Play in the browser: https://awkto.github.io/civ-wasm/** (bring your own copy of the game files)
+
+This is [reciv](https://github.com/sjmelia/reciv) (Civilization 1 for DOS,
+reverse-engineered by [civd](https://github.com/sjmelia/civd) and rebuilt on
+SDL3) compiled to WebAssembly. No game files are included; the page asks for
+your own folder or .zip and keeps it in your browser. See [WASM.md](WASM.md)
+for the browser build. The original reciv README follows.
+
+---
+
 # reciv
 
 Sid Meier's Civilization (1991, DOS 474.05) running natively on modern
