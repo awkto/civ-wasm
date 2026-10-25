@@ -1,78 +1,87 @@
 # civ-wasm
 
-**Play in the browser: https://awkto.github.io/civ-wasm/** (bring your own copy of the game files)
+**Play in the browser: https://awkto.github.io/civ-wasm/**
 
-This is [reciv](https://github.com/sjmelia/reciv) (Civilization 1 for DOS,
-reverse-engineered by [civd](https://github.com/sjmelia/civd) and rebuilt on
-SDL3) compiled to WebAssembly. No game files are included; the page asks for
-your own folder or .zip and keeps it in your browser. See [WASM.md](WASM.md)
-for the browser build. The original reciv README follows.
+Sid Meier's Civilization (1991, DOS) running in a web browser: the original
+game, rebuilt from a reconstruction of its source and compiled to
+WebAssembly, with a few additions for playing it on a modern screen.
 
----
+You need your own copy of the original game files. None are included here,
+and the page never uploads yours: they are kept in your browser.
 
-# reciv
+## Playing
 
-Sid Meier's Civilization (1991, DOS 474.05) running natively on modern
-Windows and Linux. The aim is the original game, bugs included, in a window.
+Open the page and give it your game: the Civilization folder, a .zip of it,
+or the loose files, chosen or dropped onto the page, or the URL of a .zip.
+The next visit starts straight away. Mouse and keyboard work as in the
+original.
 
-You need your own copy of the original game data; reciv does not include it.
+A link can carry the files, so a game can be shared in one click:
 
-The game logic in `src/game` comes from [civd](https://github.com/sjmelia/civd),
-a reverse-engineered reconstruction of the DOS source, not MicroProse's
-original code. reciv's changes to it are marked `reciv:`. `src/platform`
-replaces DOS, the BIOS and the game's drivers with SDL3.
+    https://awkto.github.io/civ-wasm/?url=<zip of the DOS game>&skin=<civdata4.rsc, or a zip with it>
 
-## Download for Windows
+The server holding the zip must allow cross-origin requests.
 
-Download [reciv-windows-x86_64.zip](https://github.com/sjmelia/reciv/releases/latest/download/reciv-windows-x86_64.zip)
-from the [latest release](https://github.com/sjmelia/reciv/releases/latest),
-unzip it anywhere, and point it at your game:
+## What's new compared with the DOS game
 
-    reciv.exe -d C:\Games\Civilization -s C:\Games\reciv-saves
+- **The map fills the window.** The View setting picks a zoom (1.5× to 4×,
+  or the classic 320×200); the map shows as many tiles as fit, and the other
+  screens keep their original size. Resizing the window, or the **− / +**
+  buttons in the top-right toolbar, change it during a game.
+- **Windows map art.** Add `civdata4.rsc` from Civilization for Windows
+  (1993), on its own or inside that game's folder or .zip, and the map uses
+  the Windows version's terrain, units, cities and city screen, drawn at
+  twice the detail. Menus and text stay DOS. The Map art setting switches
+  between the two.
+- **Your games, saved as you play.** Each game keeps its own autosave and
+  the start of each of its last 20 turns. The start page lists your games to
+  continue, rename, delete, or take back to an earlier turn. The game's own
+  Save and Load slots still work and are listed apart.
+- **Quicker play.** No sound and mouse setup questions, Continue goes
+  straight back to the map, the copy-protection quiz can be skipped, and
+  full-screen animations, wipes and fades run 2–3× faster (or at the
+  original speed).
+- **Enemy moves shown, fast or skipped.** Skipped means the map no longer
+  jumps to each move another civilization makes. The setting is on the start
+  page, and the toolbar's **Enemies** button changes it during a game.
+- **Display filters.** Crisp pixels, raw pixels, hq4x smoothing or bilinear, always
+  at the original 4:3 shape. Fullscreen is in the toolbar (or F11).
 
-On Linux, build from source as below.
+Saved games live in your browser's storage. Clearing the site's data
+removes them.
 
-## Building on Linux
+## Building
 
-You need CMake, Ninja, GCC 14+ (for `_BitInt`) and SDL3.
+Install the [Emscripten SDK](https://emscripten.org/docs/getting_started/downloads.html)
+in `~/emsdk` (or set `EMSDK`), plus CMake and Ninja, then:
 
-    cmake -S . -B build -G Ninja
-    ninja -C build
-    ctest --test-dir build --output-on-failure
-    ./build/reciv -d /path/to/CIVILIZATION -s /path/to/saves
+    tools/wasm/build.sh                # the site, in build-web/site/
+    cd build-web/site && python3 -m http.server 8765
 
-`tools/build-windows.sh` cross-builds a Windows package with MinGW-w64 GCC 14+.
+`tools/wasm/build.sh /path/to/CIVILIZATION` makes a local test build
+instead, with the game files baked in, served by `build-wasm/dev.html`.
+Never publish that one.
 
-## Building on Windows (Visual Studio)
+Pushes to `main` publish the site to GitHub Pages; the `dev` branch is
+published as a preview under `/dev/`. [WASM.md](WASM.md) describes how the
+browser build works and what each addition changes.
 
-Install Visual Studio 2026 with **Desktop development with C++**, and CMake
-4.2+ on PATH. Then, from PowerShell:
+## Where it comes from
 
-    .\tools\build-msvc.ps1
-    .\build-msvc\package\reciv.exe -d C:\Games\Civilization -s C:\Games\reciv-saves
-
-The script downloads and verifies SDL3, and produces `build-msvc/package/`
-and `build-msvc/reciv-windows-msvc-x86_64.zip`. For VS 2022, add
-`-VisualStudio 2022 -BuildDir build-msvc-2022`.
-
-Four of the eight tests need GNU `ld --wrap` and are skipped under MSVC.
-
-## Options
-
-| Option | Effect |
-| --- | --- |
-| `-d DIR` | Original game files (default: current directory). |
-| `-s DIR` | Saved games (default: the game directory). |
-| `--skip-quiz` | Skip the copy-protection quiz. |
-| `--filter NAME` | Artwork scaling: `hq4x` (default), `sharp`, `nearest`, `bilinear`. `--no-filter` means `nearest`. |
-| `--text-filter NAME` | Lettering scaling: `sharp` (default), `nearest`, `bilinear`, or `same` to use the artwork filter. |
-
-Filters change only what you see in the window. The game, its saves and its
-screenshots are unaffected, and the picture is always shown at 4:3.
+- [civd](https://github.com/sjmelia/civd) reconstructed the DOS game's
+  source by reverse engineering. It is not MicroProse's original code.
+- [reciv](https://github.com/sjmelia/reciv) rebuilt that source on SDL3 so
+  it runs natively on Windows and Linux. civ-wasm is a fork of reciv. Its
+  native build is still in the tree (`cmake -S . -B build -G Ninja`; see
+  reciv for details).
+- civ-wasm adds the browser build and the features above. Changes to reciv's
+  code are marked `civ-wasm:`; reciv's own changes to the game are marked
+  `reciv:`.
 
 ## Licences
 
-Portable packages include the notices for the bundled
-[SDL3](https://libsdl.org) (zlib), [HQx](third_party/hqx) (LGPL-2.1+) and
-[Nuked-OPL3](third_party/nuked-opl3) (LGPL-2.1+) in `licenses/`, with the
-HQx source in `sources/`.
+The build includes [SDL3](https://libsdl.org) (zlib),
+[HQx](third_party/hqx) (LGPL-2.1+) and
+[Nuked-OPL3](third_party/nuked-opl3) (LGPL-2.1+). The HQx and Nuked-OPL3
+licences are in `third_party/`; SDL3 comes from Emscripten's ports. Civilization and its art belong to their owners. This
+project contains none of it.

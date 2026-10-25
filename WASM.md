@@ -1,8 +1,8 @@
 # civ-wasm
 
-reciv built for the browser with Emscripten. The upstream reciv README
-describes the game and the native builds; this file covers the WebAssembly
-build only. Changes to upstream code are marked `civ-wasm:`.
+How the browser build works: reciv built with Emscripten, and the
+additions made for the browser. [README.md](README.md) covers playing and
+building; reciv's own README describes the native builds. Changes to upstream code are marked `civ-wasm:`.
 
 ## Playing
 
