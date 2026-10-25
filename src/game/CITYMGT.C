@@ -141,6 +141,24 @@ int city_view_mode = 0;
 int radius_dx[21] = { 0, 1, 0, -1, 1, 1, -1, -1, 0, 2, 0, -2, -1, 1, 2, 2, 1, -1, -2, -2, 0 };  /* x offsets of the 21 city-radius tiles */
 int radius_dy[21] = { -1, 0, 1, 0, -1, 1, 1, -1, -2, 0, 2, 0, -2, -2, -1, 1, 2, 2, 1, -1, 0 };  /* y offsets of the 21 city-radius tiles */
 
+/* civ-wasm: true when a city's production can no longer complete: an
+ * improvement it already has, a spaceship part after launch, a wonder
+ * built elsewhere, or a unit at the 127-unit cap. The city screen's
+ * Change button blinks for it, and so does the city on the map. */
+int city_change_due(int city)
+{
+    int p = townbuf[city].production, o = townbuf[city].owner;
+    if (p < 0 && p >= -21 && (townbuf[city].buildings & (1L << (-p - 1))))
+        return 1;
+    if (p < -21 && p >= -24 && (game_flags & (1 << o)))
+        return 1;
+    if (p < -24 && (marvel_site - 24)[-p] != -1)
+        return 1;
+    if (p >= 0 && troops_total[o] >= 127)
+        return 1;
+    return 0;
+}
+
 int radius_index(int first, int second)
 {
     int index;
@@ -1376,15 +1394,7 @@ label_support_restart:
         if (selected_owner == civnow) {
             draw_button(284, 190, 316, 198, "EXIT", 12);
             draw_button(231, 190, 272, 198, "RENAME", 9);
-            flash_c = 0;
-            if (townbuf[city].production < 0 && townbuf[city].production >= -21 && (townbuf[city].buildings & (1L << (-townbuf[city].production - 1))))
-                flash_c = 1;
-            if (townbuf[city].production < -21 && townbuf[city].production >= -24 && (game_flags & (1 << selected_owner)))
-                flash_c = 1;
-            if (townbuf[city].production < -24 && (marvel_site - 24)[-townbuf[city].production] != -1)
-                flash_c = 1;
-            if (townbuf[city].production >= 0 && troops_total[selected_owner] >= 127)
-                flash_c = 1;
+            flash_c = city_change_due(city);    /* civ-wasm: shared with the map's city blink */
             mouse_on();
             while (mse_held != 0)
                 poll_mouse();

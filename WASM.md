@@ -44,6 +44,16 @@ Enemy Moves option as off (no centring on each move, no slide) and drops
 the pause it still makes for a move in view. The game's option is kept:
 with it off, show and fast behave as it always did.
 
+### Cities that need a new build
+
+A city whose production can no longer complete (an improvement it already
+has, a wonder built elsewhere, a spaceship part after launch, a unit at the
+127-unit cap) blinks on the map while the game waits for an order or at End
+of Turn: a yellow ring around the city and a yellow minimap dot, at the
+pace of the active unit's blink. It is the same test that makes the city
+screen's Change button blink (CITYMGT.C `city_change_due`), drawn from
+UNITS.C `blink_unit`; changing the production stops it.
+
 ### Windows map art
 
 The map can use the art of Civilization for Windows (1993) instead of the
