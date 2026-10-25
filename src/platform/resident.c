@@ -312,9 +312,12 @@ int16_t mouse_poll(void)
     return (int16_t) events;
 }
 
+/* civ-wasm: touch controls draw no pointer (civwasm_set_touch). */
+int16_t civwasm_no_cursor;
+
 void mouse_show(void)
 {
-    if (!cursor_picture || reciv_dr_deferred)
+    if (!cursor_picture || reciv_dr_deferred || civwasm_no_cursor)
         return;
     reciv_cursor_set((int16_t) (mouse_info_b - cursor_hot_x), (int16_t) (mouse_info_c - cursor_hot_y), cursor_picture);
     reciv_dr_deferred = 1;

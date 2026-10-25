@@ -7,6 +7,12 @@
 <!-- A site that bundles the game files names the zip here; the page loads it on first visit. -->
 <meta name="civ-data" content="">
 <meta name="civ-skin" content="">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" content="#0b0d12">
+<link rel="apple-touch-icon" href="icon.svg">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Ccircle cx=%228%22 cy=%228%22 r=%227%22 fill=%22%232a6fb0%22/%3E%3Cpath d=%22M4 6h3v5H4zM9 4h3v4H9z%22 fill=%22%235aa04a%22/%3E%3C/svg%3E">
 <style>
   :root {
@@ -63,6 +69,50 @@
   body.playing #toolbar { display: flex; }
   #toolbar button { padding: 5px 10px; font-size: 13px; background: rgba(20,24,32,.85); }
   .drop { outline: 2px dashed var(--accent); outline-offset: 4px; }
+  /* Touch controls (touch.js): buttons beside the picture, a layer over it. */
+  body.touch { --gl: calc(58px + env(safe-area-inset-left)); --gr: calc(116px + env(safe-area-inset-right)); --gb: 0px;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  body.touch.playing #toolbar, #t-side, #t-orders, #t-dialog, #t-layer { display: none; }
+  /* A canvas sized by CSS alone, so SDL follows it (an auto width would not stretch it). */
+  body.touch #canvas, #t-layer { left: var(--gl); top: 0; width: calc(100vw - var(--gl) - var(--gr));
+    height: calc(100vh - var(--gb)); height: calc(100dvh - var(--gb)); }
+  body.touch.playing #t-side, body.touch.playing #t-orders, body.touch.playing #t-layer { display: grid; }
+  body.touch.playing.t-flat #t-orders { display: none; }
+  body.touch.playing.t-flat #t-dialog { display: grid; }
+  #t-layer { position: fixed; z-index: 5; touch-action: none; }
+  #t-side, #t-orders, #t-dialog { position: fixed; z-index: 6; gap: 6px; padding: 6px; box-sizing: border-box;
+    align-content: center; touch-action: manipulation; }
+  #t-side { left: 0; top: 0; bottom: 0; width: var(--gl); padding-left: calc(6px + env(safe-area-inset-left));
+    grid-auto-rows: 44px; grid-template-columns: 1fr; }
+  #t-orders, #t-dialog { right: 0; top: 0; bottom: 0; width: var(--gr); padding-right: calc(6px + env(safe-area-inset-right));
+    grid-template-columns: 1fr 1fr; grid-auto-rows: minmax(34px, 44px); }
+  #t-dialog { grid-template-columns: 1fr; }
+  #t-side button, #t-orders button, #t-dialog button { padding: 0; font-size: 12px; border-radius: 8px;
+    background: #1c212c; touch-action: manipulation; }
+  #t-side button { font-size: 20px; }
+  #t-orders button.armed { background: var(--accent); color: #1a1505; }
+  @media (orientation: portrait) {
+    body.touch { --gl: 0px; --gr: 0px; --gb: calc(150px + env(safe-area-inset-bottom)); }
+    #t-side { top: auto; bottom: 0; right: 0; width: auto; height: calc(56px + env(safe-area-inset-bottom));
+      padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); grid-auto-flow: column; grid-auto-columns: 1fr; }
+    #t-orders, #t-dialog { top: auto; left: 0; bottom: calc(56px + env(safe-area-inset-bottom)); width: auto; height: 94px;
+      padding: 6px 6px 0; grid-template-columns: repeat(6, 1fr); grid-auto-rows: 40px; }
+    #t-dialog { grid-template-columns: repeat(5, 1fr); }
+  }
+  #t-ring { position: fixed; z-index: 7; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%;
+    border: 3px solid var(--accent); opacity: 0; pointer-events: none; }
+  #t-ring.show { animation: t-ring .45s ease-out; }
+  @keyframes t-ring { from { opacity: 1; transform: scale(.4); } to { opacity: 0; transform: scale(1.2); } }
+  #t-type { position: fixed; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; font-size: 16px; }
+  #t-menu { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.6); display: flex;
+    align-items: center; justify-content: center; padding: 12px; box-sizing: border-box; }
+  #t-menu[hidden] { display: none; }
+  #t-menu .card { max-height: 100%; overflow: auto; padding: 14px 16px; }
+  #t-menu h3 { margin: 12px 0 6px; font-size: 13px; color: var(--muted); font-weight: 600; }
+  #t-menu-list, #t-settings { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+  #t-menu-list h3, #t-settings h3 { grid-column: 1 / -1; }
+  #t-menu button { min-height: 40px; padding: 6px 10px; font-size: 14px; text-align: left; }
+  #t-menu .top { display: flex; justify-content: space-between; align-items: center; }
 </style>
 </head>
 <body>
@@ -128,6 +178,12 @@
         <option value="1">Original speed</option>
       </select>
     </label>
+    <label class="field">Controls
+      <select id="controls">
+        <option value="touch">Touch (phones, tablets)</option>
+        <option value="mouse">Mouse and keyboard</option>
+      </select>
+    </label>
     <label class="field">Enemy moves
       <select id="enemy-moves">
         <option value="show">Show them</option>
@@ -154,8 +210,31 @@
   <button id="fullscreen" title="Fullscreen (F11)">Fullscreen</button>
 </div>
 <canvas id="canvas" tabindex="-1"></canvas>
+<div id="t-layer"></div>
+<div id="t-side"></div>
+<div id="t-orders"></div>
+<div id="t-dialog"></div>
+<div id="t-ring"></div>
+<input id="t-type" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Type">
+<div id="t-menu" hidden>
+  <div class="card">
+    <div class="top"><h1 style="font-size:18px">Menu</h1><button id="t-close">Close</button></div>
+    <div id="t-menu-list"></div>
+    <div id="t-settings">
+      <h3>Settings</h3>
+      <button id="t-zoom-out">Zoom out (more map)</button>
+      <button id="t-zoom-in">Zoom in</button>
+      <button id="t-enemy"></button>
+      <button id="t-leave">Save and leave to the start page</button>
+    </div>
+    <p class="hint" id="t-ios" hidden>For full screen on an iPhone: Share, then Add to Home Screen, and play from there.</p>
+    <p class="hint">Tap: select, enter a city, or move next to the unit. Hold: select or look without moving.
+       Drag: scroll the map. GoTo, then tap: go there.</p>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
+<script src="touch.js"></script>
 <script>
 // Files every copy of Civilization has; used to check what the player chose.
 const REQUIRED = ['TER257.PIC', 'SP257.PIC', 'KING00.PIC', 'BIRTH0.PIC'];
@@ -492,7 +571,8 @@ $('forget').addEventListener('click', async () => {
 });
 
 // Remember the display and view choices (a per-browser convenience).
-for (const [id, key] of [['filter', 'civ-filter'], ['view', 'civ-view'], ['anim-speed', 'civ-anim-speed'], ['skin', 'civ-skin'], ['enemy-moves', 'civ-enemy-moves']]) {
+$('controls').value = matchMedia('(pointer: coarse)').matches ? 'touch' : 'mouse';
+for (const [id, key] of [['controls', 'civ-controls'], ['filter', 'civ-filter'], ['view', 'civ-view'], ['anim-speed', 'civ-anim-speed'], ['skin', 'civ-skin'], ['enemy-moves', 'civ-enemy-moves']]) {
   try { const v = localStorage.getItem(key); if (v) $(id).value = v; } catch {}
   $(id).addEventListener('change', () => { try { localStorage.setItem(key, $(id).value); } catch {} });
 }
@@ -504,11 +584,16 @@ $('autosave').addEventListener('change', () => {
 // The game's screen for "fit window": as many game pixels as fit at the
 // chosen zoom (CSS pixels per game pixel), keeping the VGA's tall pixels.
 // The map fills it; other screens stay 320x200. When the window changes,
-// the game takes the new size the next time it waits for an order.
+// the game takes the new size the next time it waits for an order. With
+// touch controls the canvas leaves room for their buttons.
 function screenSize() {
   const z = parseFloat($('view').value);
   if (!z) return null;
-  return [Math.max(320, Math.floor(innerWidth / z)), Math.max(200, Math.floor(innerHeight / (z * 1.2)))];
+  const c = $('canvas'), w = c.clientWidth || innerWidth, h = c.clientHeight || innerHeight;
+  // The smallest screen is 320x200: past the zoom that fills the window
+  // with it, more zoom would only leave black bars.
+  const zf = Math.min(z, w / 320, h / 240);
+  return [Math.max(320, Math.floor(w / zf)), Math.max(200, Math.floor(h / (zf * 1.2)))];
 }
 function screenArg() {
   const size = screenSize();
@@ -573,6 +658,7 @@ function start({ game, slot }) {
   activeGame = game || newGame();
   lastFiled = game ? FS.stat(AUTOSAVE + '.SVE').mtime.getTime() : 0;
   document.body.classList.add('playing');
+  const touchArgs = Touch.start();
   const canvas = $('canvas');
   canvas.focus();
   canvas.addEventListener('pointerdown', () => canvas.focus());
@@ -593,6 +679,7 @@ function start({ game, slot }) {
   if ($('autosave').checked) args.push('--autosave', '3');
   args.push('--anim-speed', $('anim-speed').value);
   args.push('--enemy-moves', $('enemy-moves').value);
+  args.push(...touchArgs);
   if ($('skin').value === 'winciv' && haveSkin()) args.push('--skin', SKIN);
   if (game) args.push('--continue');
   else if (slot !== undefined) args.push('--continue', slot);

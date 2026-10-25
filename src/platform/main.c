@@ -70,7 +70,8 @@ static void usage(void)
           "  --text-filter NAME: sharp (default), nearest, bilinear, or same\n"
           "  --no-filter selects nearest pixels\n"
           "  --skin FILE: WinCiv map art from civdata4.rsc\n"
-          "  --enemy-moves MODE: show (default), fast, or skip\n", stderr);
+          "  --enemy-moves MODE: show (default), fast, or skip\n"
+          "  --touch: no mouse pointer; a tap next to the active unit moves it\n", stderr);
     exit(1);
 }
 
@@ -135,6 +136,10 @@ int main(int argc, char **argv)
             extern int16_t civwasm_enemy_moves;
             i++;
             civwasm_enemy_moves = (int16_t) (!strcmp(argv[i], "fast") ? 1 : !strcmp(argv[i], "skip") ? 2 : 0);
+        } else if (!strcmp(argv[i], "--touch")) {
+            /* civ-wasm: the page's touch controls (civwasm_set_touch). */
+            extern void civwasm_set_touch(int on);
+            civwasm_set_touch(1);
         } else if (!strcmp(argv[i], "--xray")) {
             /* civ-wasm: the game's debug view, the whole map (for tests). */
             extern int16_t xray_on;

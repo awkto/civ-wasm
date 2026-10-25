@@ -44,6 +44,33 @@ Enemy Moves option as off (no centring on each move, no slide) and drops
 the pause it still makes for a move in view. The game's option is kept:
 with it off, show and fast behave as it always did.
 
+### Touch controls
+
+The page's Controls setting (touch by default on a phone or tablet, or
+`?ui=touch|mouse`) adds `web/touch.js`: buttons beside the picture and a
+layer over it that takes every touch, so the game only sees finished
+gestures, through `civwasm_mouse` (queued and delivered with SDL's own
+events) and `civwasm_key` (BIOS keystrokes, the game's own shortcuts).
+
+- A tap is a left click: select a unit, enter a city, recentre. With
+  `--touch`, a tap on a tile next to the active unit is the move key that
+  way (CONTROL.C), so it attacks, boards and enters cities like one.
+- A long press on the map is a plain click, which never moves; on other
+  screens it is the right button.
+- A drag scrolls the map 4 tiles at a time (Shift+arrows). On other
+  screens it is the left button held.
+- `--touch` draws no mouse pointer.
+- The orders column sends the Orders menu's keys. The menu sheet sends
+  the keys for tax, advisors and the World and Civilopedia menus, or opens
+  the game's own menus. A hidden text field takes the phone keyboard's
+  typing for names.
+- `civwasm_wide_view` tells the page whether the map is showing, so it can
+  switch to OK, Back and arrow buttons on dialogs and the city screen.
+
+Fullscreen also locks landscape where the browser allows it. An iPhone has
+no fullscreen for a page; `manifest.webmanifest` lets Add to Home Screen
+open it without browser chrome.
+
 ### Windows map art
 
 The map can use the art of Civilization for Windows (1993) instead of the

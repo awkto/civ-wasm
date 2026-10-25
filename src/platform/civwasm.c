@@ -60,6 +60,44 @@ CIVWASM_EXPORT void civwasm_set_enemy_moves(int mode)
     civwasm_enemy_moves = (int16_t) (mode < 0 || mode > 2 ? 0 : mode);
 }
 
+/* ------------------------------------------------------------- touch */
+
+void reciv_mouse_inject(float x, float y, int buttons);
+extern int reciv_wide_view;
+extern int16_t civwasm_no_cursor, civwasm_tap_moves, civwasm_tap_plain;
+
+/* The page's touch controls, on or off: no mouse pointer drawn, and a tap
+ * on a tile next to the active unit moves it there (CONTROL.C). */
+CIVWASM_EXPORT void civwasm_set_touch(int on)
+{
+    civwasm_no_cursor = civwasm_tap_moves = (int16_t) !!on;
+}
+
+/* A pointer event from the touch layer, at canvas CSS pixel (x, y):
+ * buttons 1 left, 2 right; 0x100 with a press makes it a plain click,
+ * which selects or recentres even next to the active unit. */
+CIVWASM_EXPORT void civwasm_mouse(float x, float y, int buttons)
+{
+    static int held;
+    if ((buttons & 1) && !(held & 1))
+        civwasm_tap_plain = (int16_t) !!(buttons & 0x100);
+    held = buttons & 3;
+    reciv_mouse_inject(x, y, held);
+}
+
+/* A keystroke from the page's buttons: BIOS scan << 8 | ASCII. */
+CIVWASM_EXPORT void civwasm_key(int code)
+{
+    reciv_key_event((uint16_t) code);
+}
+
+/* Whether the screen shown is the map (the whole wide screen) or a
+ * 320x200 one: the page swaps its buttons to suit. */
+CIVWASM_EXPORT int civwasm_wide_view(void)
+{
+    return reciv_wide_view;
+}
+
 static int resize_pending(void)
 {
     int w = pending_w < 320 ? 320 : pending_w, h = pending_h < 200 ? 200 : pending_h;

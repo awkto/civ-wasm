@@ -611,6 +611,21 @@ extern uint16_t reciv_key_code(SDL_Scancode scancode, SDL_Keymod mod);
 
 static int mouse_buttons;
 
+/* civ-wasm: the page's touch layer sends clicks here (civwasm_mouse), in
+ * window coordinates like SDL's own; they reach the game with the next
+ * events. */
+static struct { float x, y; int buttons; } injected[16];
+static int injected_n;
+
+void reciv_mouse_inject(float x, float y, int buttons)
+{
+    if (injected_n < 16) {
+        injected[injected_n].x = x;
+        injected[injected_n].y = y;
+        injected[injected_n++].buttons = buttons;
+    }
+}
+
 static void mouse_moved(float wx, float wy)
 {
     float px, py;
@@ -638,6 +653,11 @@ void reciv_mouse_warp(int x, int y)
 void reciv_pump_events(void)
 {
     SDL_Event e;
+    for (int i = 0; i < injected_n; i++) {
+        mouse_buttons = injected[i].buttons;
+        mouse_moved(injected[i].x, injected[i].y);
+    }
+    injected_n = 0;
     while (SDL_PollEvent(&e)) {
         switch (e.type) {
         case SDL_EVENT_QUIT:

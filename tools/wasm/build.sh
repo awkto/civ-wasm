@@ -19,6 +19,7 @@ else
     ninja -C "$build"
     rm -rf "$build/site"
     mkdir -p "$build/site"
-    cp "$build/reciv.js" "$build/reciv.wasm" "$root/web/index.html" "$build/site/"
+    cp "$build/reciv.js" "$build/reciv.wasm" "$root/web/index.html" "$root/web/touch.js" \
+        "$root/web/manifest.webmanifest" "$root/web/icon.svg" "$build/site/"
     touch "$build/site/.nojekyll"
 fi

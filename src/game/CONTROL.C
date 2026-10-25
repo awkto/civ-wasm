@@ -322,6 +322,20 @@ ck:                            /* mouse click */
                                 vj = -1;
                             }
                         } else {
+                            /* civ-wasm: with touch controls, a tap on a
+                             * neighbouring tile is the move key that way,
+                             * so it attacks, boards and enters like one. */
+                            if (civwasm_tap_moves && !civwasm_tap_plain && jf < 128) {
+                                int dx = oq - U.x, dy = mc - U.y;
+                                if (dx == 79 || dx == -79)
+                                    dx = dx > 0 ? -1 : 1;
+                                if (abs(dx) <= 1 && abs(dy) <= 1 && (dx || dy)) {
+                                    ek = dy < 0 ? (dx < 0 ? 0x4700 : dx ? 0x4900 : 0x4800)
+                                       : dy > 0 ? (dx < 0 ? 0x4f00 : dx ? 0x5100 : 0x5000)
+                                       : (dx < 0 ? 0x4b00 : 0x4d00);
+                                    goto cmd;
+                                }
+                            }
                             if ((map_flags(oq, mc) & 1) && (map_city(oq, mc) == civnow || xray_on)) {
                                 cm = map_city(oq, mc);
                                 gy = city_at(oq, mc);
