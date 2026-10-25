@@ -34,6 +34,31 @@ and mouse, and `--browser-saves` turns off the game's own AutoSave (slots
 4-9). A turn-0 save loads as a new game, so the first turn has none.
 Everything lives in the browser's IndexedDB.
 
+### Windows map art
+
+The map can use the art of Civilization for Windows (1993) instead of the
+DOS tiles. The player adds `civdata4.rsc` from a Windows install (loose, in
+its folder or in its .zip, the same ways as the game files, or with
+`?skin=<url>` in a link; a site can name one in `<meta name="civ-skin">`).
+The page keeps it in `/saves/skin/` and passes `--skin FILE`; the Map art
+setting switches between the two. Nothing of it is in this repository.
+
+That file holds one picture, `SPR32X32.GIF` (CvPc resource 200, a GIF-coded
+1472x400 sheet with its own 72-colour palette). It is the DOS sprite
+pictures drawn again at twice the size and at the same places: SP257 (x, y)
+is the sheet's (2x, 2y), TER257 is (640 + 2x, 2y) and SP299 is
+(832 + 2x, 2y - 100). `skin.c` decodes it. When `load_screen` (FILEIO.C)
+loads one of those pictures, the parts the sheet has (terrain, coasts,
+rivers, roads, railways, specials, huts, citizens, units, ocean tiles) go
+into the page's skin layer, a buffer at twice the page's size
+(`mgraphic.c`). Skin pixels travel with blits, `set_page`, dissolves and
+the sprites `cut_tile` makes from them; recolouring a unit picture into a
+civilization's colours recolours its skin too. Any other write to a page
+pixel (fills, lines, text, other sprites) clears the skin there, so
+everything else on the screen, and anything the sheet lacks, shows the DOS
+pixels. `video.c` composites the screen at twice its size when the skin is
+on. `--xray` (the game's debug view of the whole map) helps testing it.
+
 ## Building
 
 Install the [Emscripten SDK](https://emscripten.org/docs/getting_started/downloads.html)

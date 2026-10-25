@@ -6,6 +6,7 @@
 <title>Civilization</title>
 <!-- A site that bundles the game files names the zip here; the page loads it on first visit. -->
 <meta name="civ-data" content="">
+<meta name="civ-skin" content="">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Ccircle cx=%228%22 cy=%228%22 r=%227%22 fill=%22%232a6fb0%22/%3E%3Cpath d=%22M4 6h3v5H4zM9 4h3v4H9z%22 fill=%22%235aa04a%22/%3E%3C/svg%3E">
 <style>
   :root {
@@ -50,6 +51,8 @@
   .history .save { padding: 4px 0; }
   #slots { margin-top: 8px; font-size: 13px; }
   .check { display: flex; gap: 8px; align-items: center; color: var(--muted); margin-top: 14px; }
+  .hint { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
+  .hint button { padding: 3px 8px; font-size: 12px; margin-left: 6px; }
   #status { min-height: 1.5em; margin-top: 12px; color: var(--muted); }
   #status.error { color: var(--error); }
   details { margin-top: 18px; color: var(--muted); font-size: 13px; }
@@ -68,10 +71,12 @@
     <h1>Sid Meier's Civilization</h1>
     <p class="sub">The 1991 DOS game, rebuilt from source and running in your browser.</p>
     <p>You need your own copy of the original game files. Choose the game's folder,
-       a .zip of it, or drop either here. The files stay in this browser and are never uploaded.</p>
+       a .zip of it, or drop either here. The files stay in this browser and are never uploaded.
+       For the Windows version's map art, add <code>civdata4.rsc</code> from Civilization for Windows
+       (or its folder or .zip) the same way.</p>
     <div class="row">
       <label class="btn">Choose folder…<input type="file" id="pick-dir" webkitdirectory multiple></label>
-      <label class="btn">Choose .zip or files…<input type="file" id="pick-files" accept=".zip,.pic,.pal,.txt,.cvl,.exe,.cv" multiple></label>
+      <label class="btn">Choose .zip or files…<input type="file" id="pick-files" accept=".zip,.pic,.pal,.txt,.cvl,.exe,.cv,.rsc" multiple></label>
     </div>
     <div class="url-row">
       <input type="url" id="data-url" placeholder="…or the URL of a .zip" autocomplete="off" spellcheck="false">
@@ -106,6 +111,13 @@
         <option value="bilinear">Blurred (bilinear)</option>
       </select>
     </label>
+    <label class="field">Map art
+      <select id="skin">
+        <option value="winciv">Civilization for Windows</option>
+        <option value="dos">Original DOS</option>
+      </select>
+    </label>
+    <p class="hint" id="skin-hint" hidden><span id="skin-text"></span><button id="forget-skin" hidden>Forget it</button></p>
     <label class="field">Animations
       <select id="anim-speed">
         <option value="2.5">2.5× faster</option>
@@ -172,6 +184,9 @@ const writeJson = (path, value) => FS.writeFile(path, JSON.stringify(value));
 const copySave = (from, to) => { for (const ext of ['.SVE', '.MAP']) FS.writeFile(to + ext, FS.readFile(from + ext)); };
 const removeSave = base => { for (const ext of ['.SVE', '.MAP']) { try { FS.unlink(base + ext); } catch {} } };
 const persist = () => syncfs(false).catch(() => {});
+// The Windows version's map art (civdata4.rsc), kept apart from the game files.
+const SKIN_DIR = '/saves/skin', SKIN = SKIN_DIR + '/CIVDATA4.RSC', SKIN_FILE = 'CIVDATA4.RSC';
+const haveSkin = () => exists(SKIN);
 
 // The save's header, as the game's Load list reads it: turn, player, year,
 // then the leaders' and civilisations' names.
@@ -318,6 +333,11 @@ function refresh() {
   $('continue').hidden = !(ok && games.length);
   $('play').disabled = !ok;
   $('forget').hidden = !ok;
+  const skin = haveSkin();
+  $('skin-hint').hidden = !skin && $('skin').value === 'dos';
+  $('skin-text').textContent = skin ? 'Windows map art is loaded.' :
+    'No Windows map art yet: add civdata4.rsc or the Windows game\'s .zip above. Until then the map uses the DOS art.';
+  $('forget-skin').hidden = !skin;
   status(ok ? 'Game files found in this browser. Ready to play.' : 'Choose your Civilization files to begin.');
 }
 
@@ -336,12 +356,13 @@ var Module = {
     refresh();
     // A shared link (?url=<zip>) loads that zip now; otherwise a first visit
     // fetches the remembered or bundled one.
+    if (shared || sharedSkin) history.replaceState(null, '', location.pathname);
     if (shared) {
       try { localStorage.setItem('civ-data-url', shared); } catch {}
       $('data-url').value = shared;
-      history.replaceState(null, '', location.pathname);
-      loadUrl(shared);
-    } else if (!haveGame() && dataUrl()) loadUrl(dataUrl());
+      await loadUrl(shared);
+    } else if (!haveGame() && dataUrl()) await loadUrl(dataUrl());
+    if (sharedSkin || (!haveSkin() && bundledSkin)) await loadUrl(sharedSkin || bundledSkin, 'the Windows map art');
   },
 };
 
@@ -367,14 +388,25 @@ async function install(fileList) {
   let files;
   try { files = await collect(fileList); }
   catch (e) { return status('Could not read those files: ' + e.message, true); }
+  const skin = files.get(SKIN_FILE);
+  files.delete(SKIN_FILE);
+  if (skin) {
+    mkdirs(SKIN_DIR);
+    FS.writeFile(SKIN, skin);
+    $('skin').value = 'winciv';
+    try { localStorage.setItem('civ-skin', 'winciv'); } catch {}
+  }
   const missing = REQUIRED.filter(f => !files.has(f));
-  if (missing.length)
+  if (missing.length && !skin)
     return status(`That doesn't look like Civilization (missing ${missing.join(', ')}).`, true);
-  for (const name of FS.readdir('/civ')) if (name !== '.' && name !== '..') FS.unlink('/civ/' + name);
-  for (const [name, data] of files) FS.writeFile('/civ/' + name, data);
+  if (!missing.length) {
+    for (const name of FS.readdir('/civ')) if (name !== '.' && name !== '..') FS.unlink('/civ/' + name);
+    for (const [name, data] of files) FS.writeFile('/civ/' + name, data);
+  }
   try { await syncfs(false); } catch (e) { console.warn('could not persist game files', e); }
   refresh();
-  status(`Loaded ${files.size} files. Ready to play.`);
+  if (!missing.length) status(`Loaded ${files.size} files${skin ? ' and the Windows map art' : ''}. Ready to play.`);
+  else status('Loaded the Windows map art.' + (haveGame() ? ' Ready to play.' : ' Now choose the DOS game files.'));
 }
 
 // The zip's URL: from a shared link, this browser's remembered one, or the
@@ -382,18 +414,23 @@ async function install(fileList) {
 const bundled = document.querySelector('meta[name="civ-data"]').content;
 const shared = [...new URLSearchParams(location.search)]
   .find(([k]) => /^(url|data)$/i.test(k))?.[1] || '';
+// ?skin=<zip or civdata4.rsc>: the Windows map art, the same way.
+const bundledSkin = document.querySelector('meta[name="civ-skin"]').content;
+const sharedSkin = [...new URLSearchParams(location.search)]
+  .find(([k]) => /^skin$/i.test(k))?.[1] || '';
 function dataUrl() {
   try { return localStorage.getItem('civ-data-url') || bundled; } catch { return bundled; }
 }
 try { $('data-url').value = localStorage.getItem('civ-data-url') || ''; } catch {}
 
-async function loadUrl(url) {
-  status('Downloading game files…');
+async function loadUrl(url, what = 'game files') {
+  status(`Downloading ${what}…`);
   let file;
   try {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    file = new File([await response.blob()], 'game.zip');
+    const name = /\.rsc$/i.test(new URL(url, location.href).pathname) ? SKIN_FILE : 'game.zip';
+    file = new File([await response.blob()], name);
   } catch (e) {
     return status(`Could not download ${url}: ${e.message}`, true);
   }
@@ -429,6 +466,13 @@ card.addEventListener('drop', async e => {
   install(files);
 });
 
+$('forget-skin').addEventListener('click', async () => {
+  try { FS.unlink(SKIN); } catch {}
+  await syncfs(false).catch(() => {});
+  refresh();
+});
+$('skin').addEventListener('change', refresh);
+
 $('forget').addEventListener('click', async () => {
   for (const name of FS.readdir('/civ')) if (name !== '.' && name !== '..') FS.unlink('/civ/' + name);
   await syncfs(false).catch(() => {});
@@ -436,7 +480,7 @@ $('forget').addEventListener('click', async () => {
 });
 
 // Remember the display and view choices (a per-browser convenience).
-for (const [id, key] of [['filter', 'civ-filter'], ['view', 'civ-view'], ['anim-speed', 'civ-anim-speed']]) {
+for (const [id, key] of [['filter', 'civ-filter'], ['view', 'civ-view'], ['anim-speed', 'civ-anim-speed'], ['skin', 'civ-skin']]) {
   try { const v = localStorage.getItem(key); if (v) $(id).value = v; } catch {}
   $(id).addEventListener('change', () => { try { localStorage.setItem(key, $(id).value); } catch {} });
 }
@@ -498,6 +542,7 @@ function start({ game, slot }) {
   if ($('skip-quiz').checked) args.push('--skip-quiz');
   if ($('autosave').checked) args.push('--autosave', '3');
   args.push('--anim-speed', $('anim-speed').value);
+  if ($('skin').value === 'winciv' && haveSkin()) args.push('--skin', SKIN);
   if (game) args.push('--continue');
   else if (slot !== undefined) args.push('--continue', slot);
   Module.callMain(args);

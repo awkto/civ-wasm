@@ -68,13 +68,15 @@ static void usage(void)
           "  --skip-quiz skips the copy-protection quiz\n"
           "  --filter NAME: hq4x (default), nearest, sharp, or bilinear\n"
           "  --text-filter NAME: sharp (default), nearest, bilinear, or same\n"
-          "  --no-filter selects nearest pixels\n", stderr);
+          "  --no-filter selects nearest pixels\n"
+          "  --skin FILE: WinCiv map art from civdata4.rsc\n", stderr);
     exit(1);
 }
 
 int main(int argc, char **argv)
 {
     const char *game_dir = ".", *save_dir = NULL;
+    const char *skin_path = NULL;
     char *game_argv[16];
     int game_argc = 0;
 
@@ -127,6 +129,13 @@ int main(int argc, char **argv)
             /* civ-wasm: AdLib and mouse, without the setup questions. */
             extern int16_t civwasm_quick_setup;
             civwasm_quick_setup = 1;
+        } else if (!strcmp(argv[i], "--xray")) {
+            /* civ-wasm: the game's debug view, the whole map (for tests). */
+            extern int16_t xray_on;
+            xray_on = 1;
+        } else if (!strcmp(argv[i], "--skin") && i + 1 < argc) {
+            /* civ-wasm: WinCiv map art from civdata4.rsc (skin.c). */
+            skin_path = argv[++i];
         } else if (!strcmp(argv[i], "--skip-quiz"))
             reciv_skip_quiz = 1;
         else if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help"))
@@ -145,6 +154,8 @@ int main(int argc, char **argv)
 #endif
     reciv_mem_init();
     reciv_pages_init();
+    if (skin_path)
+        reciv_skin_load(skin_path);
     reciv_resident_data_init();
     reciv_video_open();
     reciv_video_set_mode(3);             /* DOS starts in 80x25 text */

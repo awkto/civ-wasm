@@ -48,6 +48,191 @@ static uint8_t raster_colour_value, raster_op;
 #define SW ((uint32_t) reciv_screen_w)
 #define PAGE_BYTES ((uint32_t) reciv_screen_w * (uint32_t) reciv_screen_h)
 
+/* civ-wasm: the WinCiv skin (skin.c). Each page buffer can have a layer
+ * at twice its size, made when skin pixels first reach it. A byte there is
+ * 0 to show the page's own pixel, 1 to 127 for skin colour n - 1, or 128
+ * to 255 for DAC colour n - 128 (a unit's civilization colour). Skin
+ * pixels come from the pictures (civwasm_skin_picture) and travel with
+ * blits, set_page, dissolves and the sprites cut from them; any other
+ * write to a page pixel clears its 2 x 2 skin block. */
+static int skin_on;
+static uint8_t *skin_own[8];            /* by page_own buffer */
+#define SKW (2 * SW)
+#define SKIN_BYTES (4 * PAGE_BYTES)
+
+void reciv_skin_enable(void)
+{
+    skin_on = 1;
+}
+
+/* The skin slot of page n's buffer (page_mem may share page_own[0]). */
+static uint8_t **skin_slot(uint16_t page)
+{
+    uint8_t *mem = page_mem[page & 7];
+    for (int i = 0; i < 8; i++)
+        if (page_own[i] && page_own[i] == mem)
+            return &skin_own[i];
+    return &skin_own[page & 7];
+}
+
+static uint8_t *skin_get(uint16_t page)
+{
+    return skin_on ? *skin_slot(page) : NULL;
+}
+
+static uint8_t *skin_make(uint16_t page)
+{
+    uint8_t **slot = skin_slot(page);
+    if (!*slot && !(*slot = calloc(SKIN_BYTES, 1)))
+        reciv_fatal("no memory for the skin");
+    return *slot;
+}
+
+const uint8_t *reciv_page_skin(uint16_t page)
+{
+    return skin_get(page);
+}
+
+/* Clear the skin under page pixels x..x+w-1 of row y. */
+static void skin_clear_span(uint16_t page, int32_t x, int32_t y, int32_t w)
+{
+    uint8_t *skin = skin_get(page);
+    if (!skin || y < 0 || y >= reciv_screen_h)
+        return;
+    if (x < 0) {
+        w += x;
+        x = 0;
+    }
+    if (x + w > reciv_screen_w)
+        w = reciv_screen_w - x;
+    if (w <= 0)
+        return;
+    memset(skin + (size_t) (2 * y) * SKW + 2 * x, 0, (size_t) (2 * w));
+    memset(skin + (size_t) (2 * y + 1) * SKW + 2 * x, 0, (size_t) (2 * w));
+}
+
+static void skin_clear(uint16_t page, uint32_t offset)
+{
+    if (skin_on && offset < PAGE_BYTES && *skin_slot(page))
+        skin_clear_span(page, (int32_t) (offset % SW), (int32_t) (offset / SW), 1);
+}
+
+/* skin.c: one row of skin pixels at skin position x, y. */
+void reciv_skin_row(uint16_t page, int x, int y, int w, const uint8_t *row)
+{
+    uint8_t *skin = skin_make(page);
+    if (y < 0 || y >= 2 * reciv_screen_h)
+        return;
+    for (int i = 0; i < w; i++)
+        if (x + i >= 0 && x + i < (int) SKW)
+            skin[(size_t) y * SKW + x + i] = row[i];
+}
+
+/* Copy the skin of a w x h page rectangle, rows in the order the page's
+ * own copy went. */
+static void skin_copy(uint16_t sp, uint32_t si, uint16_t dp, uint32_t di, uint16_t w, uint16_t h)
+{
+    uint8_t *src = skin_get(sp), *dst = skin_get(dp);
+    int32_t sx = (int32_t) (si % SW), sy = (int32_t) (si / SW), dx = (int32_t) (di % SW), dy = (int32_t) (di / SW);
+    if (!skin_on || (!src && !dst) || si >= PAGE_BYTES || di >= PAGE_BYTES)
+        return;
+    if (!src) {
+        for (uint16_t r = 0; r < h; r++)
+            skin_clear_span(dp, dx, dy + r, w);
+        return;
+    }
+    dst = skin_make(dp);
+    if (sx + w > reciv_screen_w)
+        w = (uint16_t) (reciv_screen_w - sx);
+    if (dx + w > reciv_screen_w)
+        w = (uint16_t) (reciv_screen_w - dx);
+    for (uint16_t r = 0; r < h; r++) {
+        int32_t ys = sy + r, yd = dy + r;
+        if (ys >= reciv_screen_h || yd >= reciv_screen_h)
+            break;
+        for (int k = 0; k < 2; k++)
+            memmove(dst + (size_t) (2 * yd + k) * SKW + 2 * dx, src + (size_t) (2 * ys + k) * SKW + 2 * sx, (size_t) (2 * w));
+    }
+}
+
+/* recolour_rect for the skin: the civilization colour of a unit picture
+ * (skin colours 12 and 13, where DOS has 10 and 2) and any DAC colour
+ * already put there follow the page's change of colour. */
+static void skin_recolour(uint16_t page, uint32_t di, uint16_t w, uint16_t h, uint8_t from, uint8_t to)
+{
+    uint8_t *skin = skin_get(page);
+    uint8_t like = from == 10 ? 12 + 1 : from == 2 ? 13 + 1 : 0;
+    int32_t x = (int32_t) (di % SW), y = (int32_t) (di / SW);
+    if (!skin || di >= PAGE_BYTES)
+        return;
+    for (int32_t r = 2 * y; r < 2 * (y + h) && r < 2 * reciv_screen_h; r++)
+        for (int32_t c = 2 * x; c < 2 * (x + w) && c < (int32_t) SKW; c++) {
+            uint8_t *p = skin + (size_t) r * SKW + c;
+            if (*p == 128 + from || (like && *p == like))
+                *p = (uint8_t) (to < 128 ? 128 + to : 0);
+        }
+}
+
+/* Sprites cut from skinned pixels keep a skin picture at twice their size
+ * (0 transparent), by sprite segment. */
+struct skin_sprite { uint16_t w, h; uint8_t pixels[]; };
+static struct skin_sprite *skin_sprites[0x10000];
+
+static void skin_sprite_forget(uint16_t seg)
+{
+    free(skin_sprites[seg]);
+    skin_sprites[seg] = NULL;
+}
+
+/* cut_tile: keep the skin of the rectangle when it covers most of the
+ * pixels the DOS sprite draws; otherwise (or when the DOS sprite is
+ * empty) the DOS sprite draws alone. */
+static void skin_sprite_cut(uint16_t seg, uint16_t page, int16_t x, int16_t y, int16_t w, int16_t h)
+{
+    uint8_t *skin = skin_get(page);
+    struct skin_sprite *s;
+    uint32_t opaque = 0, skinned = 0;
+    if (!skin || !seg || w <= 0 || h <= 0 || x < 0 || y < 0 || x + w > reciv_screen_w || y + h > reciv_screen_h)
+        return;
+    s = malloc(sizeof *s + (size_t) w * h * 4);
+    if (!s)
+        return;
+    s->w = (uint16_t) (2 * w);
+    s->h = (uint16_t) (2 * h);
+    for (int r = 0; r < 2 * h; r++)
+        for (int c = 0; c < 2 * w; c++) {
+            uint8_t v = skin[(size_t) (2 * y + r) * SKW + 2 * x + c];
+            s->pixels[r * s->w + c] = v;
+            skinned += v != 0;
+            opaque += page_mem[page & 7][(uint32_t) (y + r / 2) * SW + (uint32_t) (x + c / 2)] != 0;
+        }
+    if (!opaque || skinned * 2 < opaque) {
+        free(s);
+        return;
+    }
+    skin_sprites[seg] = s;
+}
+
+/* Draw a skin sprite over page pixels x..x+w-1, y..y+h-1 (absolute, the
+ * sprite's own top-left at ox, oy); transparent skin pixels keep what the
+ * skin had there. */
+static void skin_sprite_draw(uint16_t page, const struct skin_sprite *s, int32_t ox, int32_t oy,
+                             int32_t x, int32_t y, int32_t w, int32_t h)
+{
+    uint8_t *skin = skin_make(page);
+    if (x < 0) { w += x; x = 0; }
+    if (y < 0) { h += y; y = 0; }
+    if (x + w > reciv_screen_w) w = reciv_screen_w - x;
+    if (y + h > reciv_screen_h) h = reciv_screen_h - y;
+    for (int32_t r = 2 * y; r < 2 * (y + h); r++) {
+        const uint8_t *src = s->pixels + (size_t) (r - 2 * oy) * s->w - 2 * ox;
+        uint8_t *dst = skin + (size_t) r * SKW;
+        for (int32_t c = 2 * x; c < 2 * (x + w); c++)
+            if (src[c])
+                dst[c] = src[c];
+    }
+}
+
 void reciv_pages_init(void)
 {
     for (int i = 0; i < 8; i++) {
@@ -77,6 +262,21 @@ static uint8_t *resized(uint8_t *old, int old_w, int old_h)
     return buf;
 }
 
+static uint8_t *skin_resized(uint8_t *old, int old_w, int old_h)
+{
+    uint8_t *buf;
+    int w = old_w < reciv_screen_w ? old_w : reciv_screen_w;
+    int h = old_h < reciv_screen_h ? old_h : reciv_screen_h;
+    if (!old)
+        return NULL;
+    if (!(buf = calloc(SKIN_BYTES, 1)))
+        reciv_fatal("no memory for the skin");
+    for (int y = 0; y < 2 * h; y++)
+        memcpy(buf + (size_t) y * SKW, old + (size_t) y * 2 * old_w, (size_t) (2 * w));
+    free(old);
+    return buf;
+}
+
 void reciv_pages_resize(int old_w, int old_h)
 {
     uint8_t *old_own[8];
@@ -89,6 +289,8 @@ void reciv_pages_resize(int old_w, int old_h)
     }
     for (int i = 0; i < 8; i++)
         page_mem[i] = page_mem[i] == old_own[0] ? page_own[0] : page_own[i];
+    for (int i = 0; i < 8; i++)
+        skin_own[i] = skin_resized(skin_own[i], old_w, old_h);
     reciv_video_dirty();
 }
 
@@ -158,6 +360,7 @@ static void store_nontext(uint16_t page, uint32_t offset, uint8_t colour)
     *pixel = result;
     *background_at(page, offset) = result;
     *text_at(page, offset) = 0;
+    skin_clear(page, offset);
 }
 
 static void store_text(uint16_t page, uint32_t offset, uint8_t colour)
@@ -182,6 +385,8 @@ void reciv_page_layers_reset(uint16_t page)
     page &= 7;
     memcpy(background_pages[page], page_mem[page], PAGE_BYTES);
     memset(text_pages[page], 0, PAGE_BYTES);
+    if (skin_get(page))
+        memset(skin_get(page), 0, SKIN_BYTES);
 }
 
 void reciv_mgraphic_install(uint16_t seg)
@@ -307,6 +512,7 @@ void draw_scanline(const uint8_t *buffer, int16_t page, int16_t x, int16_t y, in
         *background_at((uint16_t) page, at) = buffer[i];
         *text_at((uint16_t) page, at) = 0;
     }
+    skin_clear_span((uint16_t) page, x, y, bytes);
 }
 
 /* Slot 3: in a rectangle, replace colour `from` with `to`. */
@@ -315,6 +521,7 @@ void recolour_rect(const struct page16 *pg, int16_t x, int16_t y, int16_t w, int
     uint32_t di = row_offset((int16_t) (y + pg->top)) + (uint32_t) (int32_t) (x + pg->left);
     uint16_t rows = (uint16_t) h;
     reciv_require_slot(3);
+    skin_recolour((uint16_t) pg->number, di, (uint16_t) w, (uint16_t) h, (uint8_t) from, (uint8_t) to);
     do {
         uint16_t cx = (uint16_t) w;
         do {
@@ -354,6 +561,7 @@ void blit(const struct page16 *src, int16_t sx, int16_t sy, int16_t w, int16_t h
     rows = (uint16_t) h;
     if (!w || !h)
         return;
+    skin_copy((uint16_t) src->number & 7, si, (uint16_t) dst->number & 7, di, (uint16_t) w, (uint16_t) h);
     do {
         uint16_t sp = (uint16_t) src->number & 7, dp = (uint16_t) dst->number & 7;
         for (uint16_t i = 0; i < (uint16_t) w; i++) {
@@ -391,6 +599,7 @@ static void set_page_now(int16_t n)
     memmove(page_mem[0], page_mem[n & 7], PAGE_BYTES);
     memmove(background_pages[0], background_pages[n & 7], PAGE_BYTES);
     memmove(text_pages[0], text_pages[n & 7], PAGE_BYTES);
+    skin_copy((uint16_t) (n & 7), 0, 0, 0, (uint16_t) reciv_screen_w, (uint16_t) reciv_screen_h);
     reciv_video_dirty();
 }
 
@@ -447,6 +656,9 @@ void page_dissolve(int16_t n, int16_t time)
                     background_pages[0][at] = background_pages[n & 7][at];
                     text_pages[0][at] = text_pages[n & 7][at];
                 }
+            if (skin_on)
+                for (uint32_t yy = y0; yy < y1; yy++)
+                    skin_copy((uint16_t) (n & 7), yy * SW + x0, 0, yy * SW + x0, (uint16_t) (x1 - x0), 1);
         }
         if (per_frame && ++done >= per_frame) {
             done = 0;
@@ -509,6 +721,7 @@ int16_t sprite_begin(int16_t w, int16_t h)
     if (room >= 0x1000)
         room = 0xFFF;
     sprite_room = (uint16_t) (room << 4);
+    skin_sprite_forget(arena_seg);
     poke16(REAL(arena_seg, arena_next), (uint16_t) w);
     sprite_width = (uint16_t) w;
     poke16(REAL(arena_seg, arena_next + 2), (uint16_t) h);
@@ -581,7 +794,11 @@ int16_t cut_tile(int16_t page, int16_t x, int16_t y, int16_t w, int16_t h)
             si += SW;
         } while (--sprite_rows);
     }
-    return sprite_end();
+    {
+        int16_t seg = sprite_end();
+        skin_sprite_cut((uint16_t) seg, (uint16_t) (page < 0 ? -page : page), x, y, w, h);
+        return seg;
+    }
 }
 
 static int16_t clip_top, clip_left, clip_bottom, clip_right;
@@ -639,6 +856,12 @@ static void sprite_blit_rows(const struct page16 *pg, int16_t x, int16_t y, uint
     uint16_t si = 0, draw_cols, draw_rows;
     uint32_t bp;
     int16_t ax;
+    const struct skin_sprite *skinned = skin_on ? skin_sprites[sprite] : NULL;
+    if (skinned) {
+        int32_t ox = x + pg->left, oy = y + pg->top;
+        skin_sprite_draw(page_number, skinned, ox, oy, ox + clip_left, oy + clip_top,
+                         (int16_t) peek16(spr) - clip_left - clip_right, (int16_t) peek16(spr + 2) - clip_top - clip_bottom);
+    }
     x = (int16_t) (x + pg->left);
     y = (int16_t) (y + pg->top + clip_top);
     bp = row_offset(y) + (uint32_t) (int32_t) x;
@@ -679,6 +902,8 @@ static void sprite_blit_rows(const struct page16 *pg, int16_t x, int16_t y, uint
                         *page_at(page_number, di) = c;
                         *background_at(page_number, di) = c;
                         *text_at(page_number, di) = 0;
+                        if (!skinned)
+                            skin_clear(page_number, di);
                     }
                     di++;
                 }
@@ -726,6 +951,28 @@ static int16_t cursor_x, cursor_y, under_x, under_y, under_width, under_height;
 static int cursor_shown;
 static uint8_t under_cursor[512];
 static uint8_t under_cursor_background[512], under_cursor_text[512];
+static uint8_t under_cursor_skin[512][4];
+
+static void skin_get4(uint16_t page, uint32_t at, uint8_t *v)
+{
+    uint8_t *skin = skin_get(page);
+    size_t p = (size_t) (at / SW) * 2 * SKW + (at % SW) * 2;
+    if (!skin || at >= PAGE_BYTES) {
+        memset(v, 0, 4);
+        return;
+    }
+    v[0] = skin[p]; v[1] = skin[p + 1]; v[2] = skin[p + SKW]; v[3] = skin[p + SKW + 1];
+}
+
+static void skin_put4(uint16_t page, uint32_t at, const uint8_t *v)
+{
+    uint8_t *skin;
+    size_t p = (size_t) (at / SW) * 2 * SKW + (at % SW) * 2;
+    if (!skin_on || at >= PAGE_BYTES || (!skin_get(page) && !(v[0] | v[1] | v[2] | v[3])))
+        return;
+    skin = skin_make(page);
+    skin[p] = v[0]; skin[p + 1] = v[1]; skin[p + SKW] = v[2]; skin[p + SKW + 1] = v[3];
+}
 
 /* Slot 15 (cursor_restore, cursor_erase): put back what the cursor hid. */
 void reciv_cursor_erase(void)
@@ -740,6 +987,7 @@ void reciv_cursor_erase(void)
                 *page_at(0, at) = under_cursor[saved];
                 *background_at(0, at) = under_cursor_background[saved];
                 *text_at(0, at) = under_cursor_text[saved];
+                skin_put4(0, at, under_cursor_skin[saved]);
             }
             di += SW;
         }
@@ -767,6 +1015,7 @@ void reciv_cursor_draw(uint16_t page)
             under_cursor[saved] = *page_at(page, at);
             under_cursor_background[saved] = *background_at(page, at);
             under_cursor_text[saved] = *text_at(page, at);
+            skin_get4(page, at, under_cursor_skin[saved]);
         }
         si += SW;
     }
@@ -948,6 +1197,7 @@ void reciv_raster_spans(int16_t first, int16_t last, const int16_t *edges)
         memset(page_mem[raster_page] + offset, raster_colour_value, n);
         memset(background_pages[raster_page] + offset, raster_colour_value, n);
         memset(text_pages[raster_page] + offset, 0, n);
+        skin_clear_span(raster_page, (int32_t) (offset % SW), y, n);
     }
     reciv_video_dirty();
 }
@@ -1171,6 +1421,7 @@ static void text_render(struct page16 *pg, const char *s)
                         *background_at(page_number, p) = text.background;
                         *text_at(page_number, p) = 0;
                     }
+                    skin_clear(page_number, p);
                     p++;
                     bits <<= 1;
                 } while (--n);

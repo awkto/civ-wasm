@@ -43,6 +43,13 @@ void reciv_video_dirty(void);
 void reciv_set_start_address(uint16_t start);  /* CRTC 0Ch/0Dh */
 const uint8_t *reciv_page_background(uint16_t page);
 const uint8_t *reciv_page_text_mask(uint16_t page);
+/* civ-wasm: the WinCiv skin (skin.c, mgraphic.c). */
+int reciv_skin_load(const char *path);
+void reciv_skin_enable(void);
+void reciv_skin_row(uint16_t page, int x, int y, int w, const uint8_t *row);
+const uint8_t *reciv_page_skin(uint16_t page);
+extern int reciv_skin_colours;
+extern uint32_t reciv_skin_palette[128];
 void reciv_page_layers_reset(uint16_t page);
 /* civ-wasm: the size of the screen and of every page (default 320 x 200). */
 extern int reciv_screen_w, reciv_screen_h;

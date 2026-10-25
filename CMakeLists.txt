@@ -121,6 +121,7 @@ add_library(reciv-core ${RECIV_CORE_KIND}
     src/platform/asound-voice.c
     src/platform/asound-command.c
     src/platform/civwasm.c
+    src/platform/skin.c
     src/crt/crt.c
     src/platform/dos.c
     src/platform/files.c

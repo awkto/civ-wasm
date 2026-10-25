@@ -19,4 +19,5 @@ extern int civwasm_browser_saves;       /* --browser-saves: the page keeps the s
  * the original 15 x 12 view: reveal(civ, x - 7 - WIDE_DX, y - 6 - WIDE_DY). */
 #define WIDE_DX (view_cols / 2 - 7)
 #define WIDE_DY (view_rows / 2 - 6)
+extern void civwasm_skin_picture(int, char *);   /* skin.c: a picture loaded */
 #endif

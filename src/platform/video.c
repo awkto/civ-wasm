@@ -35,6 +35,10 @@ static int text_scaled_factor, text_filter_failed;
 static uint32_t *text_pixels;
 static SDL_BlendMode text_blend_mode;
 static int filter_failed;
+/* civ-wasm: the WinCiv skin, composited at twice the screen's size. */
+static SDL_Texture *skin_texture, *skin_scaled_texture;
+static uint32_t *skin_pixels;
+static int skin_scaled_factor;
 static uint16_t start_address;          /* CRTC start address, in 4-pixel units */
 static void text_clear(void);
 static int video_mode = 3;
@@ -136,8 +140,13 @@ void reciv_video_resize(void)
     SDL_DestroyTexture(filtered_texture);
     SDL_DestroyTexture(scaled_texture);
     SDL_DestroyTexture(text_scaled_texture);
+    SDL_DestroyTexture(skin_texture);
+    SDL_DestroyTexture(skin_scaled_texture);
+    SDL_free(skin_pixels);
+    skin_pixels = NULL;
     texture = text_texture = filtered_texture = scaled_texture = text_scaled_texture = NULL;
-    scaled_factor = text_scaled_factor = 0;
+    skin_texture = skin_scaled_texture = NULL;
+    scaled_factor = text_scaled_factor = skin_scaled_factor = 0;
     screen_textures();
     dirty = 1;
 }
@@ -391,6 +400,98 @@ static void present_graphics(void)
     SDL_RenderTexture(renderer, display, &part, &view);
 }
 
+/* The skin's picture: each screen pixel as 2 x 2, a skin colour where the
+ * skin layer has one, else the pixel. Text drawn over the skin shows (in
+ * the frame itself unless the text layer is separate). */
+static int skin_frame(const uint32_t *palette, uint32_t offset)
+{
+    const uint8_t *skin = reciv_page_skin(0);
+    const uint8_t *src = reciv_screen_pixels(), *text_mask = reciv_page_text_mask(0);
+    const uint8_t *background = split_text ? reciv_page_background(0) : src;
+    uint32_t colours[256];
+    int w2 = 2 * SW;
+    if (!skin || !reciv_skin_colours)
+        return 0;
+    if (!skin_pixels) {
+        skin_pixels = SDL_malloc((size_t) w2 * 2 * SH * sizeof(uint32_t));
+        skin_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING, w2, 2 * SH);
+        if (!skin_pixels || !skin_texture) {
+            reciv_log("no memory for the skin's picture");
+            reciv_skin_colours = 0;
+            return 0;
+        }
+        SDL_SetTextureScaleMode(skin_texture, filter == RECIV_FILTER_BILINEAR ?
+                                SDL_SCALEMODE_LINEAR : SDL_SCALEMODE_NEAREST);
+    }
+    colours[0] = 0;
+    for (int i = 0; i < 127; i++)
+        colours[i + 1] = reciv_skin_palette[i];
+    for (int i = 0; i < 128; i++)
+        colours[128 + i] = palette[i];
+    for (int y = 0; y < SH; y++) {
+        uint32_t *out0 = skin_pixels + (size_t) (2 * y) * w2, *out1 = out0 + w2;
+        for (int x = 0; x < SW; x++) {
+            uint32_t at = (uint32_t) y * SW + x + offset;
+            uint32_t base;
+            if (at >= (uint32_t) (SW * SH)) {
+                out0[2 * x] = out0[2 * x + 1] = out1[2 * x] = out1[2 * x + 1] = 0;
+                continue;
+            }
+            base = palette[background[at]];
+            if (text_mask[at] && !split_text) {
+                out0[2 * x] = out0[2 * x + 1] = out1[2 * x] = out1[2 * x + 1] = base;
+                continue;
+            }
+            {
+                uint32_t sa = at + (uint32_t) (at / SW) * SW;   /* (x, y) -> (2x, 2y) */
+                const uint8_t *k0 = skin + 2 * (size_t) sa, *k1 = k0 + w2;
+                out0[2 * x] = k0[0] ? colours[k0[0]] : base;
+                out0[2 * x + 1] = k0[1] ? colours[k0[1]] : base;
+                out1[2 * x] = k1[0] ? colours[k1[0]] : base;
+                out1[2 * x + 1] = k1[1] ? colours[k1[1]] : base;
+            }
+        }
+    }
+    SDL_UpdateTexture(skin_texture, NULL, skin_pixels, w2 * (int) sizeof(uint32_t));
+    return 1;
+}
+
+/* present_graphics for the skin: the 2x picture, enlarged sharply by an
+ * even factor, then stretched to the view. */
+static void present_skin(void)
+{
+    SDL_Texture *display = skin_texture;
+    int display_factor = 2;
+    if (filter != RECIV_FILTER_NEAREST && filter != RECIV_FILTER_BILINEAR) {
+        float sx = view.w / shown_w(), sy = view.h / shown_h();
+        int factor = ((int) (sx < sy ? sx : sy)) & ~1;
+        while (factor > 2 && (SW * factor > 4096 || SH * factor > 4096))
+            factor -= 2;
+        if (factor > 2) {
+            if (!skin_scaled_texture || factor != skin_scaled_factor) {
+                SDL_DestroyTexture(skin_scaled_texture);
+                skin_scaled_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XRGB8888,
+                                                        SDL_TEXTUREACCESS_TARGET, SW * factor, SH * factor);
+                skin_scaled_factor = factor;
+                if (skin_scaled_texture)
+                    SDL_SetTextureScaleMode(skin_scaled_texture, SDL_SCALEMODE_LINEAR);
+            }
+            if (skin_scaled_texture && SDL_SetRenderTarget(renderer, skin_scaled_texture)) {
+                bool copied = SDL_RenderTexture(renderer, skin_texture, NULL, NULL);
+                if (!SDL_SetRenderTarget(renderer, NULL))
+                    reciv_fatal("restore window render target: %s", SDL_GetError());
+                if (copied) {
+                    display = skin_scaled_texture;
+                    display_factor = factor;
+                }
+            }
+        } else
+            SDL_SetTextureScaleMode(skin_texture, SDL_SCALEMODE_LINEAR);
+    }
+    SDL_FRect part = { 0, 0, (float) shown_w() * display_factor, (float) shown_h() * display_factor };
+    SDL_RenderTexture(renderer, display, &part, &view);
+}
+
 static void present_graphics_text(void)
 {
     SDL_Texture *display = text_texture;
@@ -477,8 +578,12 @@ void reciv_video_present(int force)
         for (int i = 0; i < pixels; ++i)
             frame_pixels[i] = palette[src[i]];
     }
-    SDL_UpdateTexture(texture, NULL, frame_pixels, SW * (int) sizeof(uint32_t));
-    present_graphics();
+    if (skin_frame(palette, offset))
+        present_skin();
+    else {
+        SDL_UpdateTexture(texture, NULL, frame_pixels, SW * (int) sizeof(uint32_t));
+        present_graphics();
+    }
     if (split_text)
         present_graphics_text();
     SDL_RenderPresent(renderer);

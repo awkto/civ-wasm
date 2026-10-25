@@ -1,3 +1,4 @@
+#include "WIDE.H"
 /* Resident F1FA1:[000A,089C): image/file loaders and packed-resource IO.
    Complete 2,194-byte CODE contribution, no DATA/CONST/BSS payload.
    Shared IO state remains external. Compiled with /AM /Gs /Oal /Zl. */
@@ -119,6 +120,7 @@ void load_picture_mode(int page, char *name, char *mode)
 void load_screen(int page, char *name)
 {
     LOAD_PIC(page, 0, 0, name, 0);
+    civwasm_skin_picture(page, name);  /* civ-wasm: WinCiv map art */
 }
 
 void load_back(char *name)

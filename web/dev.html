@@ -20,6 +20,8 @@ function start() {
     if (q.get('autosave')) args.push('--autosave', q.get('autosave'));
     if (q.get('anim')) args.push('--anim-speed', q.get('anim'));
     if (q.has('continue')) args.push('--continue');
+    if (q.has('xray')) args.push('--xray');
+    if (q.has('skin')) args.push('--skin', '/civ/CIVDATA4.RSC');
     window.civResize = (w, h) => Module._civwasm_request_screen(w, h);
     Module.callMain(args);
 }
