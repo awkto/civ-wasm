@@ -54,10 +54,11 @@ int load_game(int slot)
     int i, drive, reserve;
     save_mode = 1;
     mouse_off();
-    /* civ-wasm: --continue loads the autosave, slot 9, without asking. */
+    /* civ-wasm: --continue loads its slot without asking: 0-9, or 17 for
+     * the browser autosave (CIVILA, '0' + 17), which Load does not list. */
     if (civwasm_continue) {
+        slot = civwasm_continue - 1;
         civwasm_continue = 0;
-        slot = 9;
         drive = 0;
     } else
         drive = choose_drive();
@@ -132,7 +133,7 @@ int preview;
     link_seas(0, 0);
     scrbuf->number = 0;
     for (save_index = 1; save_index < 8; save_index++);
-    reload = slotsel < 4 ? 1 : 2;
+    reload = slotsel < 4 || slotsel == 17 ? 1 : 2;     /* civ-wasm: the autosave resumes mid-turn, as slots 0-3 do */
     fame_slot = -3;
     game_flags &= ~1;
     return 1;
@@ -187,11 +188,12 @@ void save_game(int slot)
 
 /* NOLINTEND(clang-diagnostic-deprecated-non-prototype) */
 
-/* civ-wasm: the autosave, slot 9 (listed by Load; Save offers 0-3), written
- * silently while the game waits for an order (UNITS.C blink_unit). */
+/* civ-wasm: the browser autosave, CIVILA (not one of Load's slots 0-9, so
+ * it never meets the game's own AutoSave in 4-9), written silently while
+ * the game waits for an order (UNITS.C blink_unit). */
 void autosave(void)
 {
-    static char autofile[] = "a:CIVIL9.SVE";
+    static char autofile[] = "a:CIVILA.SVE";
     int old_error = save_error;
     save_error = 0;
     read_save(autofile);

@@ -275,10 +275,12 @@ again:
         if (idle & 2)
             autosave();
         if (idle & 1) {
+            /* Keep the tile at the centre of the view in the centre. */
+            int cx = map_x0 + view_cols / 2, cy = map_y0 + view_rows / 2;
             mouse_off();
             civwasm_resize();
             mouse_on();
-            reveal(owner, map_x0, map_y0);
+            reveal(owner, wrap_x(cx - view_cols / 2), cy - view_rows / 2);
             uinit(owner, index);
             goto again;
         }
@@ -292,7 +294,7 @@ again:
         if (c != -1)
             draw_box(c, d, 15, 15, 15);
         mouse_on();
-        flip(kbhit()? 1 : 10);
+        flip(civwasm_real_ticks(kbhit()? 1 : 10));   /* civ-wasm: blinks at the original pace */
         mouse_off();
         if (index < 128) {
             unit_redraw(owner, index);
@@ -303,7 +305,7 @@ again:
         if (c != -1)
             draw_box(c, d, 15, 15, 0);
         mouse_on();
-        flip(kbhit()? 1 : 10);
+        flip(civwasm_real_ticks(kbhit()? 1 : 10));   /* civ-wasm: blinks at the original pace */
         poll_mouse();
     } while (!kbhit() && !mse_held);
 }

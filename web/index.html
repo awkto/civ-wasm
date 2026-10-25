@@ -38,6 +38,13 @@
   .url-row { display: flex; gap: 8px; margin: 8px 0; }
   .url-row input { flex: 1; min-width: 0; font: inherit; background: #222836; color: var(--text);
     border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; }
+  #saves { margin-top: 14px; }
+  #saves h2 { font-size: 14px; font-weight: 600; margin: 0 0 6px; color: var(--muted); }
+  .save { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--border); }
+  .save .info { flex: 1; min-width: 0; }
+  .save .name { font-weight: 600; overflow-wrap: anywhere; }
+  .save .meta { color: var(--muted); font-size: 13px; }
+  .save button { padding: 5px 10px; font-size: 13px; }
   .check { display: flex; gap: 8px; align-items: center; color: var(--muted); margin-top: 14px; }
   #status { min-height: 1.5em; margin-top: 12px; color: var(--muted); }
   #status.error { color: var(--error); }
@@ -70,6 +77,10 @@
       <button class="primary" id="continue" hidden>Continue</button>
       <button class="primary" id="play" disabled>Play</button>
       <button id="forget" hidden>Forget game files</button>
+    </div>
+    <div id="saves" hidden>
+      <h2>Saved games</h2>
+      <div id="save-list"></div>
     </div>
     <label class="field">View
       <select id="view">
@@ -132,14 +143,82 @@ const haveGame = () => {
   } catch { return false; }
 };
 
-// The autosave the game writes while waiting for orders (SAVE.C, slot 9).
-const haveAutosave = () => {
-  try { return FS.readdir('/saves').some(n => n.toUpperCase() === 'CIVIL9.SVE'); } catch { return false; }
-};
+// Saved games: the game's slots CIVIL0-9.SVE (0-3 from Save, 4-9 from its
+// own AutoSave) and the browser autosave, CIVILA, written while the game
+// waits for orders (SAVE.C). Names are labels kept beside them.
+const AUTOSAVE = 'A';
+function readNames() {
+  try { return JSON.parse(new TextDecoder().decode(FS.readFile('/saves/names.json'))); } catch { return {}; }
+}
+function writeNames(names) {
+  FS.writeFile('/saves/names.json', JSON.stringify(names));
+  syncfs(false).catch(() => {});
+}
+function listSaves() {
+  let files = [];
+  try { files = FS.readdir('/saves'); } catch {}
+  const saves = [];
+  for (const file of files) {
+    const m = /^CIVIL([0-9A])\.SVE$/i.exec(file);
+    if (!m) continue;
+    const slot = m[1].toUpperCase(), path = '/saves/' + file;
+    let summary = '';
+    try {
+      // The save's header, as Load's list reads it: player, year, leaders, civilisations.
+      const b = FS.readFile(path), v = new DataView(b.buffer, b.byteOffset, b.byteLength);
+      const civ = v.getInt16(2, true), year = v.getInt16(8, true);
+      const text = (at, n) => new TextDecoder('latin1').decode(b.subarray(at, at + n)).replace(/\0.*$/s, '');
+      summary = `${text(16 + civ * 14, 14)} of the ${text(128 + civ * 12, 12)}, ${Math.abs(year)} ${year < 0 ? 'BC' : 'AD'}`;
+    } catch {}
+    const when = FS.stat(path).mtime;
+    saves.push({ slot, summary, when });
+  }
+  return saves.sort((a, b) => b.when - a.when);
+}
+function defaultName(slot) {
+  return slot === AUTOSAVE ? 'Autosave' : `Slot ${slot}`;
+}
+function renderSaves() {
+  const saves = haveGame() ? listSaves() : [], names = readNames(), list = $('save-list');
+  list.replaceChildren();
+  for (const save of saves) {
+    const row = document.createElement('div');
+    row.className = 'save';
+    const info = document.createElement('div');
+    info.className = 'info';
+    const name = document.createElement('div');
+    name.className = 'name';
+    name.textContent = names[save.slot] || defaultName(save.slot);
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = [save.summary, `saved ${save.when.toLocaleString()}`].filter(Boolean).join(' · ');
+    info.append(name, meta);
+    const resume = document.createElement('button');
+    resume.textContent = 'Resume';
+    resume.addEventListener('click', () => start(save.slot));
+    const rename = document.createElement('button');
+    rename.textContent = 'Rename';
+    rename.addEventListener('click', () => {
+      const current = names[save.slot] || defaultName(save.slot);
+      const next = prompt('Name this saved game:', current);
+      if (next === null) return;
+      const all = readNames();
+      if (next.trim()) all[save.slot] = next.trim().slice(0, 80);
+      else delete all[save.slot];
+      writeNames(all);
+      renderSaves();
+    });
+    row.append(info, resume, rename);
+    list.append(row);
+  }
+  $('saves').hidden = !saves.length;
+  return saves;
+}
 
 function refresh() {
   const ok = haveGame();
-  $('continue').hidden = !(ok && haveAutosave());
+  const saves = renderSaves();
+  $('continue').hidden = !(ok && saves.some(s => s.slot === AUTOSAVE));
   $('play').disabled = !ok;
   $('forget').hidden = !ok;
   status(ok ? 'Game files found in this browser. Ready to play.' : 'Choose your Civilization files to begin.');
@@ -291,10 +370,11 @@ addEventListener('resize', () => {
 // The right button is the game's; keep the browser's menu away from it.
 document.addEventListener('contextmenu', e => { if (document.body.classList.contains('playing')) e.preventDefault(); });
 
-$('play').addEventListener('click', () => start(false));
-$('continue').addEventListener('click', () => start(true));
+$('play').addEventListener('click', () => start(null));
+$('continue').addEventListener('click', () => start(AUTOSAVE));
 
-function start(resume) {
+// Start the game; `slot` resumes a saved game (0-9, or the autosave).
+function start(slot) {
   document.body.classList.add('playing');
   const canvas = $('canvas');
   canvas.focus();
@@ -309,7 +389,8 @@ function start(resume) {
   if ($('skip-quiz').checked) args.push('--skip-quiz');
   if ($('autosave').checked) args.push('--autosave', '3');
   args.push('--anim-speed', $('anim-speed').value);
-  if (resume) args.push('--continue');
+  if (slot === AUTOSAVE) args.push('--continue');
+  else if (slot !== null) args.push('--continue', slot);
   Module.callMain(args);
   // SDL sizes the canvas from its default window until the page resizes;
   // tell it about the real size now that the window exists.

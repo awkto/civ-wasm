@@ -74,6 +74,13 @@ void civwasm_resize(void)
     reciv_video_resize();
 }
 
+/* The game's animation clock runs --anim-speed times as fast; a wait that
+ * should keep the original pace (blink_unit) asks for this many ticks. */
+int16_t civwasm_real_ticks(int16_t ticks)
+{
+    return (int16_t) ((ticks * reciv_anim_speed + 5) / 10);
+}
+
 /* ----------------------------------------------------------- autosave */
 
 int civwasm_autosave_seconds;           /* 0: off (--autosave SECONDS) */

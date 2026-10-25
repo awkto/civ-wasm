@@ -108,10 +108,12 @@ int main(int argc, char **argv)
             /* civ-wasm: save slot 9 at most this often, while waiting for orders. */
             civwasm_autosave_seconds = atoi(argv[++i]);
         } else if (!strcmp(argv[i], "--continue")) {
-            /* civ-wasm: skip the introduction to Load, and load slot 9
-             * without asking. */
+            /* civ-wasm: skip the introduction and load a save without
+             * asking: --continue [0-9], or the autosave (CIVILA) by default. */
             extern int16_t civwasm_continue;
-            civwasm_continue = 1;
+            civwasm_continue = 18;
+            if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9' && !argv[i + 1][1])
+                civwasm_continue = (int16_t) (argv[++i][0] - '0' + 1);
         } else if (!strcmp(argv[i], "--anim-speed") && i + 1 < argc) {
             /* civ-wasm: full-screen animations, wipes and fades, this many times as fast. */
             double speed = atof(argv[++i]);
