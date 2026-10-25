@@ -1,3 +1,4 @@
+#include "WIDE.H"                /* civ-wasm */
 /* Resident code segment 1D05 (0000..0BFA): the menu system (pop-up menus with
    mouse and keyboard selection, advisor reports), boxes and panels.
    One complete MSC translation unit with its _DATA (DGROUP:2F36..2FD2).
@@ -220,7 +221,7 @@ int menu_layout(char *text, int x, int y, int preset)
                 len += char_width(scrbuf->font, text[index_or_font_b]);
             }
         }
-        line_count = clamp(line_count, 0, (192 - y) / line_height);
+        line_count = clamp(line_count, 0, (screen_h - 8 - y) / line_height);  /* civ-wasm: was 192 */
         panel_frame_rim = x + linewide + 8;
         panel_bottom_j = line_count * line_height + y + 6;
         if (help_flag)

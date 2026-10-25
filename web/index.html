@@ -98,7 +98,9 @@
     <label class="field">View
       <select id="view">
         <option value="2">Fit window, zoom 2× (more map)</option>
+        <option value="2.5">Fit window, zoom 2.5×</option>
         <option value="3">Fit window, zoom 3×</option>
+        <option value="4">Fit window, zoom 4×</option>
         <option value="1.5">Fit window, zoom 1.5× (most map)</option>
         <option value="classic">Classic 320×200</option>
       </select>
@@ -139,6 +141,8 @@
   </div>
 </div>
 <div id="toolbar">
+  <button id="zoom-out" title="Zoom out (more map)">−</button>
+  <button id="zoom-in" title="Zoom in">+</button>
   <button id="fullscreen" title="Fullscreen (F11)">Fullscreen</button>
 </div>
 <canvas id="canvas" tabindex="-1"></canvas>
@@ -509,6 +513,30 @@ addEventListener('resize', () => {
   resizeTimer = setTimeout(() => Module._civwasm_request_screen(...screenSize()), 300);
 });
 
+// Zoom while playing: the next or previous zoom of the View setting, taken
+// like a window resize. From the classic screen, zooming out fits the window.
+const ZOOMS = [...$('view').options].map(o => parseFloat(o.value)).filter(z => z).sort((a, b) => a - b);
+function zoom(step) {
+  const z = parseFloat($('view').value) || Infinity;
+  const next = step < 0 ? [...ZOOMS].reverse().find(v => v < z) : ZOOMS.find(v => v > z);
+  if (next) {
+    $('view').value = String(next);
+    $('view').dispatchEvent(new Event('change'));
+    Module._civwasm_request_screen(...screenSize());
+  }
+  zoomTitles();
+  $('canvas').focus();
+}
+function zoomTitles() {
+  const z = parseFloat($('view').value);
+  $('zoom-out').disabled = z === ZOOMS[0];
+  $('zoom-in').disabled = !z || z === ZOOMS[ZOOMS.length - 1];
+  $('zoom-in').title = `Zoom in (now ${z ? z + '×' : 'classic'})`;
+  $('zoom-out').title = `Zoom out, more map (now ${z ? z + '×' : 'classic'})`;
+}
+$('zoom-in').addEventListener('click', () => zoom(1));
+$('zoom-out').addEventListener('click', () => zoom(-1));
+
 // The right button is the game's; keep the browser's menu away from it.
 document.addEventListener('contextmenu', e => { if (document.body.classList.contains('playing')) e.preventDefault(); });
 
@@ -546,6 +574,7 @@ function start({ game, slot }) {
   if (game) args.push('--continue');
   else if (slot !== undefined) args.push('--continue', slot);
   Module.callMain(args);
+  zoomTitles();
   // SDL sizes the canvas from its default window until the page resizes;
   // tell it about the real size now that the window exists.
   dispatchEvent(new Event('resize'));

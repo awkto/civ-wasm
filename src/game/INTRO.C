@@ -581,7 +581,8 @@ void show_start(void)
             strcpy(msgtext, terrains[code + 12].name);
         if (has_hut(code, x, y))
             strcpy(msgtext, "Village");
-        show_label(spiral_x[i] * 16 + 200, spiral_y[i] * 16 + 112, spiral_x[i] * 64 + 170, spiral_y[i] * 48 + 100);
+        show_label(spiral_x[i] * 16 + 200 + WIDE_DX * 16, spiral_y[i] * 16 + 112 + WIDE_DY * 16,    /* civ-wasm: the centre of a wider view */
+                   spiral_x[i] * 64 + 170 + WIDE_DX * 16, spiral_y[i] * 48 + 100 + WIDE_DY * 16);
     }
     strcpy(msgtext, "Menu Bar");
     show_label(160, 6, 200, 16);
