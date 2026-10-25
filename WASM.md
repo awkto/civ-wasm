@@ -34,6 +34,16 @@ and mouse, and `--browser-saves` turns off the game's own AutoSave (slots
 4-9). A turn-0 save loads as a new game, so the first turn has none.
 Everything lives in the browser's IndexedDB.
 
+### Enemy moves
+
+`--enemy-moves show|fast|skip` (the page's Enemy moves setting, and its
+toolbar button while playing through `civwasm_set_enemy_moves`). Fast
+slides other civilizations' units in four steps instead of sixteen and
+pauses 8 ticks after each move instead of 30. Skip treats the game's own
+Enemy Moves option as off (no centring on each move, no slide) and drops
+the pause it still makes for a move in view. The game's option is kept:
+with it off, show and fast behave as it always did.
+
 ### Windows map art
 
 The map can use the art of Civilization for Windows (1993) instead of the

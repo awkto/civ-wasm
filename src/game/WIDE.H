@@ -14,6 +14,7 @@ extern int civwasm_quick_setup;         /* --quick-setup: AdLib and mouse, no qu
 extern int civwasm_idle(int entering);  /* bit 0: resize pending; bit 1: autosave now */
 extern void civwasm_resize(void);
 extern void autosave(void);
+extern int civwasm_enemy_moves;         /* --enemy-moves: 0 shown, 1 fast, 2 skipped (set while playing too) */
 extern int civwasm_browser_saves;       /* --browser-saves: the page keeps the saves; no AutoSave */
 /* How much further a centred view's corner sits from its centre than in
  * the original 15 x 12 view: reveal(civ, x - 7 - WIDE_DX, y - 6 - WIDE_DY). */

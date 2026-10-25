@@ -69,7 +69,8 @@ static void usage(void)
           "  --filter NAME: hq4x (default), nearest, sharp, or bilinear\n"
           "  --text-filter NAME: sharp (default), nearest, bilinear, or same\n"
           "  --no-filter selects nearest pixels\n"
-          "  --skin FILE: WinCiv map art from civdata4.rsc\n", stderr);
+          "  --skin FILE: WinCiv map art from civdata4.rsc\n"
+          "  --enemy-moves MODE: show (default), fast, or skip\n", stderr);
     exit(1);
 }
 
@@ -129,6 +130,11 @@ int main(int argc, char **argv)
             /* civ-wasm: AdLib and mouse, without the setup questions. */
             extern int16_t civwasm_quick_setup;
             civwasm_quick_setup = 1;
+        } else if (!strcmp(argv[i], "--enemy-moves") && i + 1 < argc) {
+            /* civ-wasm: other civilizations' moves shown, fast or skipped. */
+            extern int16_t civwasm_enemy_moves;
+            i++;
+            civwasm_enemy_moves = (int16_t) (!strcmp(argv[i], "fast") ? 1 : !strcmp(argv[i], "skip") ? 2 : 0);
         } else if (!strcmp(argv[i], "--xray")) {
             /* civ-wasm: the game's debug view, the whole map (for tests). */
             extern int16_t xray_on;

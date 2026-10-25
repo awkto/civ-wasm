@@ -53,6 +53,13 @@ CIVWASM_EXPORT void civwasm_request_screen(int w, int h)
     pending_h = h;
 }
 
+/* The page's Enemy moves button, at any time: 0 shown, 1 fast, 2 skipped. */
+CIVWASM_EXPORT void civwasm_set_enemy_moves(int mode)
+{
+    extern int16_t civwasm_enemy_moves;
+    civwasm_enemy_moves = (int16_t) (mode < 0 || mode > 2 ? 0 : mode);
+}
+
 static int resize_pending(void)
 {
     int w = pending_w < 320 ? 320 : pending_w, h = pending_h < 200 ? 200 : pending_h;

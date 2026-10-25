@@ -128,6 +128,13 @@
         <option value="1">Original speed</option>
       </select>
     </label>
+    <label class="field">Enemy moves
+      <select id="enemy-moves">
+        <option value="show">Show them</option>
+        <option value="fast">Show them fast</option>
+        <option value="skip">Skip them (no map jumps)</option>
+      </select>
+    </label>
     <label class="check"><input type="checkbox" id="autosave" checked> Autosave as you play (every game keeps its own save and the last 20 turns)</label>
     <label class="check"><input type="checkbox" id="skip-quiz" checked> Skip the copy-protection quiz</label>
     <div id="status">Starting…</div>
@@ -141,6 +148,7 @@
   </div>
 </div>
 <div id="toolbar">
+  <button id="enemy" title="Enemy moves: shown, fast or skipped (click to change)"></button>
   <button id="zoom-out" title="Zoom out (more map)">−</button>
   <button id="zoom-in" title="Zoom in">+</button>
   <button id="fullscreen" title="Fullscreen (F11)">Fullscreen</button>
@@ -484,7 +492,7 @@ $('forget').addEventListener('click', async () => {
 });
 
 // Remember the display and view choices (a per-browser convenience).
-for (const [id, key] of [['filter', 'civ-filter'], ['view', 'civ-view'], ['anim-speed', 'civ-anim-speed'], ['skin', 'civ-skin']]) {
+for (const [id, key] of [['filter', 'civ-filter'], ['view', 'civ-view'], ['anim-speed', 'civ-anim-speed'], ['skin', 'civ-skin'], ['enemy-moves', 'civ-enemy-moves']]) {
   try { const v = localStorage.getItem(key); if (v) $(id).value = v; } catch {}
   $(id).addEventListener('change', () => { try { localStorage.setItem(key, $(id).value); } catch {} });
 }
@@ -535,6 +543,20 @@ function zoomTitles() {
   $('zoom-out').title = `Zoom out, more map (now ${z ? z + '×' : 'classic'})`;
 }
 $('zoom-in').addEventListener('click', () => zoom(1));
+
+// Enemy moves while playing: shown, fast, skipped, in turn; the game takes
+// the change at once.
+const ENEMY = ['show', 'fast', 'skip'];
+const ENEMY_LABEL = { show: 'Enemies: shown', fast: 'Enemies: fast', skip: 'Enemies: skipped' };
+function enemyLabel() { $('enemy').textContent = ENEMY_LABEL[$('enemy-moves').value]; }
+$('enemy').addEventListener('click', () => {
+  const mode = ENEMY[(ENEMY.indexOf($('enemy-moves').value) + 1) % ENEMY.length];
+  $('enemy-moves').value = mode;
+  $('enemy-moves').dispatchEvent(new Event('change'));
+  Module._civwasm_set_enemy_moves(ENEMY.indexOf(mode));
+  enemyLabel();
+  $('canvas').focus();
+});
 $('zoom-out').addEventListener('click', () => zoom(-1));
 
 // The right button is the game's; keep the browser's menu away from it.
@@ -570,11 +592,13 @@ function start({ game, slot }) {
   if ($('skip-quiz').checked) args.push('--skip-quiz');
   if ($('autosave').checked) args.push('--autosave', '3');
   args.push('--anim-speed', $('anim-speed').value);
+  args.push('--enemy-moves', $('enemy-moves').value);
   if ($('skin').value === 'winciv' && haveSkin()) args.push('--skin', SKIN);
   if (game) args.push('--continue');
   else if (slot !== undefined) args.push('--continue', slot);
   Module.callMain(args);
   zoomTitles();
+  enemyLabel();
   // SDL sizes the canvas from its default window until the page resizes;
   // tell it about the real size now that the window exists.
   dispatchEvent(new Event('resize'));

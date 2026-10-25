@@ -941,7 +941,7 @@ mv:                            /* move unit */
                         if (gi == 10 && (map_flags(oq, mc) & 2))
                             U.visibility |= 1 << cm;
                         if ((U.visibility & (1 << civnow)) || civ == civnow || (xray_on && civ != 0)) {
-                            if ((debug & 32) || civ == civnow) {
+                            if (((debug & 32) && civwasm_enemy_moves != 2) || civ == civnow) {    /* civ-wasm: skipped */
                                 map_center(civnow, oq, mc);
                                 anim_unit(civ, jf, ms);
                             } else
@@ -1004,14 +1004,14 @@ mv:                            /* move unit */
                         if (civ == 0 && gi != 10 && ((1 << civnow) & map_visible_to[oq * 50 + mc]) && !((1 << civnow) & U.visibility) && townbuf[near_city(oq, mc)].owner == civnow)
                             U.visibility |= map_visible_to[oq * 50 + mc];
                         if ((U.visibility & (1 << civnow)) || civ == civnow || (xray_on && civ != 0)) {
-                            if (civ == civnow || (debug & 32)) {
+                            if (civ == civnow || ((debug & 32) && civwasm_enemy_moves != 2)) {
                                 map_center(civnow, oq, mc);
                                 unit_redraw(civ, jf);
                                 if (civ != civnow && still != 1)
-                                    flip(30);
+                                    flip(civwasm_enemy_moves ? 8 : 30);     /* civ-wasm: fast */
                             } else {
-                                if (unit_redraw(civ, jf) != 0)
-                                    flip(10);
+                                if (unit_redraw(civ, jf) != 0 && civwasm_enemy_moves != 2)
+                                    flip(civwasm_enemy_moves ? 3 : 10);
                             }
                         }
                         wi = 0;

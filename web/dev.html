@@ -19,6 +19,7 @@ function start() {
     if (q.get('filter')) args.push('--filter', q.get('filter'));
     if (q.get('autosave')) args.push('--autosave', q.get('autosave'));
     if (q.get('anim')) args.push('--anim-speed', q.get('anim'));
+    if (q.get('enemy')) args.push('--enemy-moves', q.get('enemy'));
     if (q.has('continue')) args.push('--continue');
     if (q.has('xray')) args.push('--xray');
     if (q.has('skin')) args.push('--skin', '/civ/CIVDATA4.RSC');
