@@ -5,6 +5,7 @@ extern int city_view_mode;
 extern int radius_dx[21];
 extern int radius_dy[21];
 extern int radius_index(int, int);
+extern int city_change_due(int);    /* civ-wasm */
 extern void add_tile_yield(int, int, int);
 extern int tile_yield(int, int, int);
 extern int civ_wonder(int, int);

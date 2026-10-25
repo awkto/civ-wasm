@@ -71,6 +71,15 @@ The layout is for a phone held upright: the picture on top, the buttons
 in rows under it. Fullscreen also locks portrait where the browser allows it. An iPhone has
 no fullscreen for a page; `manifest.webmanifest` lets Add to Home Screen
 open it without browser chrome.
+### Cities that need a new build
+
+A city whose production can no longer complete (an improvement it already
+has, a wonder built elsewhere, a spaceship part after launch, a unit at the
+127-unit cap) blinks on the map while the game waits for an order or at End
+of Turn: a yellow ring around the city and a yellow minimap dot, at the
+pace of the active unit's blink. It is the same test that makes the city
+screen's Change button blink (CITYMGT.C `city_change_due`), drawn from
+UNITS.C `blink_unit`; changing the production stops it.
 
 ### Windows map art
 

@@ -12,6 +12,7 @@
 #include "RESIDENT.H"
 #include "UNITAI.H"
 #include "CITY.H"
+#include "CITYMGT.H"            /* civ-wasm */
 #include "CONTROL.H"
 #include "CORE.H"
 #include "ECONOMY.H"
@@ -251,6 +252,37 @@ extern void unit_redraw(int, int);
 extern void far reveal(int group, int x, int y);    /* civ-wasm: blink_unit redraws after a resize */
 extern void uinit(int player, int unit);
 
+/* civ-wasm: cities whose production needs changing (CITYMGT.C
+ * city_change_due, the city screen's blinking Change button) blink with
+ * the active unit: a yellow ring and minimap dot, then the tile drawn
+ * again. The on-phase runs after the unit's tile was drawn without the
+ * unit, so a ring on the unit's own city never covers its sprite. */
+static void blink_cities(int owner, int on)
+{
+    int i, sx, sy, n;
+    if (still == 1 || bare_flag != 0)
+        return;
+    for (i = 0; i < 128; i++) {
+        if (townbuf[i].status == -1 || townbuf[i].owner != owner || !city_change_due(i))
+            continue;
+        sy = townbuf[i].y - view_yorg;
+        if (sy >= 0 && sy < 50)
+            plot_pixel(wrap_x(townbuf[i].x - view_xorg), sy + 8, on ? 14 : civ_colours[owner]);
+        sx = (wrap_x(townbuf[i].x - map_x0) << 4) + 80;
+        sy = ((townbuf[i].y - map_y0) << 4) + 8;
+        if (sx < 80 || sx >= screen_w || sy < 8 || sy > screen_h - 8)
+            continue;
+        if (on) {               /* two pixels thick: it replaces a white ring */
+            draw_box(sx, sy, 15, 15, 14);
+            draw_box(sx + 1, sy + 1, 13, 13, 14);
+        } else {
+            n = city_label_n;   /* seen_map queues a name label; reveal owns that list */
+            seen_map(townbuf[i].x, townbuf[i].y);
+            city_label_n = n;
+        }
+    }
+}
+
 void blink_unit(int owner, int index, int x, int y)
 {
     int a, b, c, d, e, f, g;
@@ -291,11 +323,13 @@ again:
                 plot_pixel(a, b + 8, 15);
         } else
             draw_string("End of Turn", 4, 124, 7);
+        blink_cities(owner, 1);     /* civ-wasm */
         if (c != -1)
             draw_box(c, d, 15, 15, 15);
         mouse_on();
         flip(civwasm_real_ticks(kbhit()? 1 : 10));   /* civ-wasm: blinks at the original pace */
         mouse_off();
+        blink_cities(owner, 0);     /* civ-wasm */
         if (index < 128) {
             unit_redraw(owner, index);
             if (b >= 0 && b < 50)
