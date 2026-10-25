@@ -22,11 +22,17 @@ the window (`--screen WxH`): the map fills it, other screens stay 320x200.
 When the window changes, the game takes the new size the next time it
 waits for an order (UNITS.C `blink_unit`, platform `civwasm.c`).
 
-With Autosave on (`--autosave SECONDS`), the game writes slot 9 (CIVIL9.SVE
-and .MAP, through its own silent save routine) at most that often while it
-waits for an order, so a closed tab loses at most the last few seconds.
-Continue (`--continue`) answers the setup questions, skips the introduction
-and loads slot 9. Saves live in the browser's IndexedDB.
+With Autosave on (`--autosave SECONDS`), the game writes CIVILA.SVE and
+.MAP (its own silent save routine; not one of Load's slots 0-9) at most
+that often while it waits for an order. The page files each new one under
+the game being played, in `/saves/games/<id>/`: `current.*`, and
+`history/T<turn>.*` for the start of each of the last 20 turns. The start
+page lists those games to resume, rename, delete or restore to an earlier
+turn; the game's own Save slots are listed apart. `--continue [N]` loads
+CIVILA (or slot N) without the introduction, `--quick-setup` answers AdLib
+and mouse, and `--browser-saves` turns off the game's own AutoSave (slots
+4-9). A turn-0 save loads as a new game, so the first turn has none.
+Everything lives in the browser's IndexedDB.
 
 ## Building
 

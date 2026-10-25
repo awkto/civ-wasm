@@ -118,6 +118,11 @@ int main(int argc, char **argv)
             /* civ-wasm: full-screen animations, wipes and fades, this many times as fast. */
             double speed = atof(argv[++i]);
             reciv_anim_speed = speed < 1 ? 10 : speed > 10 ? 100 : (int) (speed * 10 + 0.5);
+        } else if (!strcmp(argv[i], "--browser-saves")) {
+            /* civ-wasm: the page keeps each game's saves and history, so
+             * the game's own AutoSave (every 50 turns, slots 4-9) is off. */
+            extern int16_t civwasm_browser_saves;
+            civwasm_browser_saves = 1;
         } else if (!strcmp(argv[i], "--quick-setup")) {
             /* civ-wasm: AdLib and mouse, without the setup questions. */
             extern int16_t civwasm_quick_setup;

@@ -250,7 +250,10 @@ void game_turn(void)
     if (turn_tick % 50 == 0 && civnow != -1) {
         if (!(game_flags & 1) && year < 0 && !reciv_skip_quiz)    /* reciv: --skip-quiz */
             quiz_event();
-        if (debug & 2)
+        /* civ-wasm: under --browser-saves the page keeps each game's
+         * saves and history, so the game's own AutoSave (slots 4-9, with
+         * its drive question) is off. */
+        if ((debug & 2) && !civwasm_browser_saves)
             save_game((turn_tick / 50 - 1) % 6 + 4);
         max_rating = 0;
         i = 1;

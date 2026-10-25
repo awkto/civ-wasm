@@ -194,7 +194,12 @@ void save_game(int slot)
 void autosave(void)
 {
     static char autofile[] = "a:CIVILA.SVE";
-    int old_error = save_error;
+    int old_error;
+    /* A turn-0 save loads as a new game (GAME.C start_game), so the first
+     * turn has none. */
+    if (turn_tick == 0)
+        return;
+    old_error = save_error;
     save_error = 0;
     read_save(autofile);
     save_error = old_error;

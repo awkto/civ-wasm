@@ -45,6 +45,10 @@
   .save .name { font-weight: 600; overflow-wrap: anywhere; }
   .save .meta { color: var(--muted); font-size: 13px; }
   .save button { padding: 5px 10px; font-size: 13px; }
+  .history { margin: 0 0 4px 14px; font-size: 13px; }
+  .history summary { color: var(--muted); }
+  .history .save { padding: 4px 0; }
+  #slots { margin-top: 8px; font-size: 13px; }
   .check { display: flex; gap: 8px; align-items: center; color: var(--muted); margin-top: 14px; }
   #status { min-height: 1.5em; margin-top: 12px; color: var(--muted); }
   #status.error { color: var(--error); }
@@ -79,8 +83,12 @@
       <button id="forget" hidden>Forget game files</button>
     </div>
     <div id="saves" hidden>
-      <h2>Saved games</h2>
-      <div id="save-list"></div>
+      <h2>Your games</h2>
+      <div id="game-list"></div>
+      <details id="slots" hidden>
+        <summary>Save slots (the game's own Save menu)</summary>
+        <div id="slot-list"></div>
+      </details>
     </div>
     <label class="field">View
       <select id="view">
@@ -106,7 +114,7 @@
         <option value="1">Original speed</option>
       </select>
     </label>
-    <label class="check"><input type="checkbox" id="autosave" checked> Autosave as you play (Continue resumes there)</label>
+    <label class="check"><input type="checkbox" id="autosave" checked> Autosave as you play (every game keeps its own save and the last 20 turns)</label>
     <label class="check"><input type="checkbox" id="skip-quiz" checked> Skip the copy-protection quiz</label>
     <div id="status">Starting…</div>
     <details>
@@ -143,82 +151,171 @@ const haveGame = () => {
   } catch { return false; }
 };
 
-// Saved games: the game's slots CIVIL0-9.SVE (0-3 from Save, 4-9 from its
-// own AutoSave) and the browser autosave, CIVILA, written while the game
-// waits for orders (SAVE.C). Names are labels kept beside them.
-const AUTOSAVE = 'A';
-function readNames() {
-  try { return JSON.parse(new TextDecoder().decode(FS.readFile('/saves/names.json'))); } catch { return {}; }
+// Saved games. The game writes its autosave to CIVILA while it waits for
+// orders (SAVE.C), and its own Save menu writes slots CIVIL0-9. Every few
+// seconds the page files a new CIVILA under the game being played:
+//   /saves/games/<id>/meta.json            name, created, last played
+//   /saves/games/<id>/current.SVE, .MAP    its latest state
+//   /saves/games/<id>/history/T<turn>.*    the start of each turn, the last 20
+const GAMES = '/saves/games', HISTORY = 20, AUTOSAVE = '/saves/CIVILA';
+const exists = path => { try { FS.stat(path); return true; } catch { return false; } };
+const ls = dir => { try { return FS.readdir(dir).filter(n => n[0] !== '.'); } catch { return []; } };
+const mkdirs = path => {
+  let at = '';
+  for (const part of path.split('/').filter(Boolean)) { at += '/' + part; if (!exists(at)) FS.mkdir(at); }
+};
+const readJson = (path, fallback) => {
+  try { return JSON.parse(new TextDecoder().decode(FS.readFile(path))); } catch { return fallback; }
+};
+const writeJson = (path, value) => FS.writeFile(path, JSON.stringify(value));
+// A save is two files, .SVE and .MAP.
+const copySave = (from, to) => { for (const ext of ['.SVE', '.MAP']) FS.writeFile(to + ext, FS.readFile(from + ext)); };
+const removeSave = base => { for (const ext of ['.SVE', '.MAP']) { try { FS.unlink(base + ext); } catch {} } };
+const persist = () => syncfs(false).catch(() => {});
+
+// The save's header, as the game's Load list reads it: turn, player, year,
+// then the leaders' and civilisations' names.
+function describe(sve) {
+  try {
+    const b = FS.readFile(sve), v = new DataView(b.buffer, b.byteOffset, b.byteLength);
+    const turn = v.getInt16(0, true), civ = v.getInt16(2, true), year = v.getInt16(8, true);
+    const text = (at, n) => new TextDecoder('latin1').decode(b.subarray(at, at + n)).replace(/\0.*$/s, '');
+    return { turn, leader: text(16 + civ * 14, 14), civ: text(128 + civ * 12, 12),
+             year: `${Math.abs(year)} ${year < 0 ? 'BC' : 'AD'}`, when: FS.stat(sve).mtime };
+  } catch { return null; }
 }
-function writeNames(names) {
-  FS.writeFile('/saves/names.json', JSON.stringify(names));
-  syncfs(false).catch(() => {});
+
+function listGames() {
+  return ls(GAMES).map(id => {
+    const dir = `${GAMES}/${id}`, info = describe(`${dir}/current.SVE`);
+    if (!info || info.turn < 1) return null;
+    const history = ls(`${dir}/history`).filter(n => /\.SVE$/i.test(n)).sort().reverse()
+      .map(n => ({ base: `${dir}/history/${n.slice(0, -4)}`, ...describe(`${dir}/history/${n}`) }))
+      .filter(h => h.turn > 0);
+    return { id, dir, meta: readJson(`${dir}/meta.json`, {}), info, history };
+  }).filter(Boolean).sort((a, b) => (b.meta.played || 0) - (a.meta.played || 0));
 }
-function listSaves() {
-  let files = [];
-  try { files = FS.readdir('/saves'); } catch {}
-  const saves = [];
-  for (const file of files) {
-    const m = /^CIVIL([0-9A])\.SVE$/i.exec(file);
-    if (!m) continue;
-    const slot = m[1].toUpperCase(), path = '/saves/' + file;
-    let summary = '';
-    try {
-      // The save's header, as Load's list reads it: player, year, leaders, civilisations.
-      const b = FS.readFile(path), v = new DataView(b.buffer, b.byteOffset, b.byteLength);
-      const civ = v.getInt16(2, true), year = v.getInt16(8, true);
-      const text = (at, n) => new TextDecoder('latin1').decode(b.subarray(at, at + n)).replace(/\0.*$/s, '');
-      summary = `${text(16 + civ * 14, 14)} of the ${text(128 + civ * 12, 12)}, ${Math.abs(year)} ${year < 0 ? 'BC' : 'AD'}`;
-    } catch {}
-    const when = FS.stat(path).mtime;
-    saves.push({ slot, summary, when });
-  }
-  return saves.sort((a, b) => b.when - a.when);
+
+const gameName = game => game.meta.name || `${game.info.leader} of the ${game.info.civ}`;
+
+// While playing: file a changed CIVILA under the active game.
+let activeGame = null, lastFiled = 0;
+function fileAutosave() {
+  if (!activeGame || !exists(AUTOSAVE + '.SVE') || !exists(AUTOSAVE + '.MAP')) return;
+  const changed = FS.stat(AUTOSAVE + '.SVE').mtime.getTime();
+  if (changed === lastFiled) return;
+  lastFiled = changed;
+  const dir = `${GAMES}/${activeGame}`, info = describe(AUTOSAVE + '.SVE');
+  // A turn-0 save loads as a new game (GAME.C start_game); keep none.
+  if (!info || info.turn < 1) return;
+  mkdirs(`${dir}/history`);
+  copySave(AUTOSAVE, `${dir}/current`);
+  // The first save of a turn is the start of that turn.
+  const turnBase = `${dir}/history/T${String(info.turn).padStart(4, '0')}`;
+  if (!exists(turnBase + '.SVE')) copySave(AUTOSAVE, turnBase);
+  const turns = ls(`${dir}/history`).filter(n => /\.SVE$/i.test(n)).sort();
+  for (const old of turns.slice(0, Math.max(0, turns.length - HISTORY)))
+    removeSave(`${dir}/history/${old.slice(0, -4)}`);
+  const meta = readJson(`${dir}/meta.json`, {});
+  writeJson(`${dir}/meta.json`, { ...meta, played: Date.now() });
 }
-function defaultName(slot) {
-  return slot === AUTOSAVE ? 'Autosave' : `Slot ${slot}`;
+
+// A new game's id; its folder appears with its first autosave.
+function newGame() {
+  const id = 'g' + Date.now().toString(36);
+  mkdirs(`${GAMES}/${id}`);
+  writeJson(`${GAMES}/${id}/meta.json`, { created: Date.now(), played: Date.now() });
+  return id;
 }
+
+// Before this layout: an autosave on its own becomes a game.
+function importOldAutosave() {
+  if (listGames().length || !exists(AUTOSAVE + '.SVE') || !exists(AUTOSAVE + '.MAP')) return;
+  activeGame = newGame();
+  fileAutosave();
+  activeGame = null;
+  persist();
+}
+
+function button(label, action) {
+  const b = document.createElement('button');
+  b.textContent = label;
+  b.addEventListener('click', action);
+  return b;
+}
+function saveRow(name, meta, ...buttons) {
+  const row = document.createElement('div'), info = document.createElement('div');
+  row.className = 'save';
+  info.className = 'info';
+  const n = document.createElement('div'), m = document.createElement('div');
+  n.className = 'name';
+  n.textContent = name;
+  m.className = 'meta';
+  m.textContent = meta;
+  info.append(n, m);
+  row.append(info, ...buttons);
+  return row;
+}
+
 function renderSaves() {
-  const saves = haveGame() ? listSaves() : [], names = readNames(), list = $('save-list');
+  const games = haveGame() ? listGames() : [];
+  const list = $('game-list');
   list.replaceChildren();
-  for (const save of saves) {
-    const row = document.createElement('div');
-    row.className = 'save';
-    const info = document.createElement('div');
-    info.className = 'info';
-    const name = document.createElement('div');
-    name.className = 'name';
-    name.textContent = names[save.slot] || defaultName(save.slot);
-    const meta = document.createElement('div');
-    meta.className = 'meta';
-    meta.textContent = [save.summary, `saved ${save.when.toLocaleString()}`].filter(Boolean).join(' · ');
-    info.append(name, meta);
-    const resume = document.createElement('button');
-    resume.textContent = 'Resume';
-    resume.addEventListener('click', () => start(save.slot));
-    const rename = document.createElement('button');
-    rename.textContent = 'Rename';
-    rename.addEventListener('click', () => {
-      const current = names[save.slot] || defaultName(save.slot);
-      const next = prompt('Name this saved game:', current);
-      if (next === null) return;
-      const all = readNames();
-      if (next.trim()) all[save.slot] = next.trim().slice(0, 80);
-      else delete all[save.slot];
-      writeNames(all);
-      renderSaves();
-    });
-    row.append(info, resume, rename);
-    list.append(row);
+  for (const game of games) {
+    list.append(saveRow(gameName(game),
+      `${game.info.leader} of the ${game.info.civ}, ${game.info.year} · played ${new Date(game.meta.played || game.info.when).toLocaleString()}`,
+      button('Resume', () => start({ game: game.id })),
+      button('Rename', () => {
+        const next = prompt('Name this game:', gameName(game));
+        if (next === null) return;
+        writeJson(`${game.dir}/meta.json`, { ...game.meta, name: next.trim().slice(0, 80) || undefined });
+        persist();
+        renderSaves();
+      }),
+      button('Delete', () => {
+        if (!confirm(`Delete "${gameName(game)}" and its history?`)) return;
+        for (const n of ls(`${game.dir}/history`)) FS.unlink(`${game.dir}/history/${n}`);
+        try { FS.rmdir(`${game.dir}/history`); } catch {}
+        for (const n of ls(game.dir)) FS.unlink(`${game.dir}/${n}`);
+        FS.rmdir(game.dir);
+        persist();
+        refresh();
+      })));
+    if (game.history.length) {
+      const details = document.createElement('details'), summary = document.createElement('summary');
+      details.className = 'history';
+      summary.textContent = `History: the last ${game.history.length} turn${game.history.length > 1 ? 's' : ''}`;
+      details.append(summary);
+      for (const turn of game.history)
+        details.append(saveRow(`Turn ${turn.turn}, ${turn.year}`, `start of turn · ${turn.when.toLocaleString()}`,
+          button('Restore', () => {
+            if (!confirm(`Go back to turn ${turn.turn} (${turn.year})? Later turns in this game's history are dropped.`)) return;
+            copySave(turn.base, `${game.dir}/current`);
+            for (const later of game.history.filter(h => h.turn > turn.turn)) removeSave(later.base);
+            start({ game: game.id });
+          })));
+      list.append(details);
+    }
   }
-  $('saves').hidden = !saves.length;
-  return saves;
+  // The game's own slots, from its Save menu.
+  const slots = haveGame() ? ls('/saves').map(n => /^CIVIL([0-9])\.SVE$/i.exec(n)).filter(Boolean) : [];
+  const slotList = $('slot-list');
+  slotList.replaceChildren();
+  for (const m of slots.sort((a, b) => a[1] - b[1])) {
+    const info = describe('/saves/' + m[0]);
+    if (info)
+      slotList.append(saveRow(`Slot ${m[1]}`, `${info.leader} of the ${info.civ}, ${info.year} · saved ${info.when.toLocaleString()}`,
+        button('Resume', () => start({ slot: m[1] }))));
+  }
+  $('slots').hidden = !slotList.children.length;
+  $('saves').hidden = !games.length && !slotList.children.length;
+  return games;
 }
 
 function refresh() {
   const ok = haveGame();
-  const saves = renderSaves();
-  $('continue').hidden = !(ok && saves.some(s => s.slot === AUTOSAVE));
+  const games = renderSaves();
+  $('continue').hidden = !(ok && games.length);
   $('play').disabled = !ok;
   $('forget').hidden = !ok;
   status(ok ? 'Game files found in this browser. Ready to play.' : 'Choose your Civilization files to begin.');
@@ -235,6 +332,7 @@ var Module = {
     }
     try { await syncfs(true); } catch (e) { console.warn('IndexedDB unavailable', e); }
     ready();
+    importOldAutosave();
     refresh();
     // A shared link (?url=<zip>) loads that zip now; otherwise a first visit
     // fetches the remembered or bundled one.
@@ -370,27 +468,38 @@ addEventListener('resize', () => {
 // The right button is the game's; keep the browser's menu away from it.
 document.addEventListener('contextmenu', e => { if (document.body.classList.contains('playing')) e.preventDefault(); });
 
-$('play').addEventListener('click', () => start(null));
-$('continue').addEventListener('click', () => start(AUTOSAVE));
+$('play').addEventListener('click', () => start({}));
+$('continue').addEventListener('click', () => start({ game: listGames()[0].id }));
 
-// Start the game; `slot` resumes a saved game (0-9, or the autosave).
-function start(slot) {
+// Start the game: a new one ({}), one of your games ({game}), or one of the
+// game's Save slots ({slot}), which then carries on as a new game of yours.
+function start({ game, slot }) {
+  removeSave(AUTOSAVE);
+  if (game) copySave(`${GAMES}/${game}/current`, AUTOSAVE);
+  activeGame = game || newGame();
+  lastFiled = game ? FS.stat(AUTOSAVE + '.SVE').mtime.getTime() : 0;
   document.body.classList.add('playing');
   const canvas = $('canvas');
   canvas.focus();
   canvas.addEventListener('pointerdown', () => canvas.focus());
-  // Saved games land in /saves; copy them to IndexedDB every few seconds and on leaving.
+  // File each new autosave under this game, then copy /saves to IndexedDB,
+  // every few seconds and on leaving.
   let syncing = false;
-  const save = () => { if (syncing) return; syncing = true; syncfs(false).catch(() => {}).finally(() => syncing = false); };
+  const save = () => {
+    fileAutosave();
+    if (syncing) return;
+    syncing = true;
+    syncfs(false).catch(() => {}).finally(() => syncing = false);
+  };
   setInterval(save, 3000);
   addEventListener('pagehide', save);
   document.addEventListener('visibilitychange', () => document.hidden && save());
-  const args = ['-d', '/civ', '-s', '/saves', '--quick-setup', '--filter', $('filter').value, '--text-filter', 'same', ...screenArg()];
+  const args = ['-d', '/civ', '-s', '/saves', '--quick-setup', '--browser-saves', '--filter', $('filter').value, '--text-filter', 'same', ...screenArg()];
   if ($('skip-quiz').checked) args.push('--skip-quiz');
   if ($('autosave').checked) args.push('--autosave', '3');
   args.push('--anim-speed', $('anim-speed').value);
-  if (slot === AUTOSAVE) args.push('--continue');
-  else if (slot !== null) args.push('--continue', slot);
+  if (game) args.push('--continue');
+  else if (slot !== undefined) args.push('--continue', slot);
   Module.callMain(args);
   // SDL sizes the canvas from its default window until the page resizes;
   // tell it about the real size now that the window exists.
