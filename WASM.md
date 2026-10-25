@@ -7,14 +7,18 @@ build only. Changes to upstream code are marked `civ-wasm:`.
 ## Playing
 
 The page (`web/index.html`) asks for the original game files: a folder, a
-.zip, or loose files, chosen or dropped onto the page. They are kept in the
+.zip, or loose files, chosen or dropped onto the page, or the URL of a .zip
+(the server must allow cross-origin requests). A link with `?url=<zip>`
+downloads that zip straight away, and a site that bundles the game names
+its zip in `<meta name="civ-data">`. They are kept in the
 browser's IndexedDB, so later visits start straight away. Saved games are kept
 there too (synced every few seconds). The canvas fills the window and the game
 keeps a 4:3 picture inside it; mouse and keyboard work as in the original.
 
 Pushes to `main` build and publish the site to GitHub Pages
 (`.github/workflows/pages.yml`). Upstream's Linux and Windows workflows are
-disabled in this repository.
+disabled in this repository. The View setting sizes the game's screen to
+the window (`--screen WxH`): the map fills it, other screens stay 320x200.
 
 ## Building
 
