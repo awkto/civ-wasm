@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Civilization</title>
+<!-- A site that bundles the game files names the zip here; the page loads it on first visit. -->
+<meta name="civ-data" content="">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Ccircle cx=%228%22 cy=%228%22 r=%227%22 fill=%22%232a6fb0%22/%3E%3Cpath d=%22M4 6h3v5H4zM9 4h3v4H9z%22 fill=%22%235aa04a%22/%3E%3C/svg%3E">
 <style>
   :root {
@@ -33,6 +35,9 @@
   .field { display: flex; gap: 8px; align-items: center; color: var(--muted); margin-top: 14px; }
   select { font: inherit; background: #222836; color: var(--text); border: 1px solid var(--border);
     border-radius: 6px; padding: 4px 8px; }
+  .url-row { display: flex; gap: 8px; margin: 8px 0; }
+  .url-row input { flex: 1; min-width: 0; font: inherit; background: #222836; color: var(--text);
+    border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; }
   .check { display: flex; gap: 8px; align-items: center; color: var(--muted); margin-top: 14px; }
   #status { min-height: 1.5em; margin-top: 12px; color: var(--muted); }
   #status.error { color: var(--error); }
@@ -56,6 +61,10 @@
     <div class="row">
       <label class="btn">Choose folder…<input type="file" id="pick-dir" webkitdirectory multiple></label>
       <label class="btn">Choose .zip or files…<input type="file" id="pick-files" accept=".zip,.pic,.pal,.txt,.cvl,.exe,.cv" multiple></label>
+    </div>
+    <div class="url-row">
+      <input type="url" id="data-url" placeholder="…or the URL of a .zip" autocomplete="off" spellcheck="false">
+      <button id="load-url">Load</button>
     </div>
     <div class="row">
       <button class="primary" id="play" disabled>Play</button>
@@ -132,6 +141,14 @@ var Module = {
     try { await syncfs(true); } catch (e) { console.warn('IndexedDB unavailable', e); }
     ready();
     refresh();
+    // A shared link (?url=<zip>) loads that zip now; otherwise a first visit
+    // fetches the remembered or bundled one.
+    if (shared) {
+      try { localStorage.setItem('civ-data-url', shared); } catch {}
+      $('data-url').value = shared;
+      history.replaceState(null, '', location.pathname);
+      loadUrl(shared);
+    } else if (!haveGame() && dataUrl()) loadUrl(dataUrl());
   },
 };
 
@@ -166,6 +183,37 @@ async function install(fileList) {
   refresh();
   status(`Loaded ${files.size} files. Ready to play.`);
 }
+
+// The zip's URL: from a shared link, this browser's remembered one, or the
+// site's bundled one. The link parameter's name is matched without case.
+const bundled = document.querySelector('meta[name="civ-data"]').content;
+const shared = [...new URLSearchParams(location.search)]
+  .find(([k]) => /^(url|data)$/i.test(k))?.[1] || '';
+function dataUrl() {
+  try { return localStorage.getItem('civ-data-url') || bundled; } catch { return bundled; }
+}
+try { $('data-url').value = localStorage.getItem('civ-data-url') || ''; } catch {}
+
+async function loadUrl(url) {
+  status('Downloading game files…');
+  let file;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    file = new File([await response.blob()], 'game.zip');
+  } catch (e) {
+    return status(`Could not download ${url}: ${e.message}`, true);
+  }
+  await install([file]);
+}
+
+$('load-url').addEventListener('click', () => {
+  const url = $('data-url').value.trim();
+  if (!url) return;
+  try { localStorage.setItem('civ-data-url', url); } catch {}
+  loadUrl(url);
+});
+$('data-url').addEventListener('keydown', e => { if (e.key === 'Enter') $('load-url').click(); });
 
 $('pick-dir').addEventListener('change', e => install(e.target.files));
 $('pick-files').addEventListener('change', e => install(e.target.files));
