@@ -60,7 +60,7 @@ const Touch = (() => {
     ['Back', 'Escape', () => key(K.esc)],
     ['▲', 'Up', () => key(K.up)],
     ['▼', 'Down', () => key(K.down)],
-    ['Type…', 'Show the keyboard, to type a name', () => keyboard()],
+    ['Type…', 'Show the keyboard, to type a name', keyboard],
   ];
   // The menu sheet: the DOS menu bar's entries.
   const MENU = [
@@ -94,7 +94,9 @@ const Touch = (() => {
     if (cls) b.className = cls;
     // Act on pointerdown: a phone's click comes late, and the game should
     // not lose a tap to a scroll of the page.
-    b.addEventListener('pointerdown', e => { e.preventDefault(); action(); });
+    // Any button but the keyboard's puts the phone keyboard away: the
+    // field keeps its focus otherwise, and the phone shows it again.
+    b.addEventListener('pointerdown', e => { e.preventDefault(); if (action !== keyboard) typed(false); action(); });
     b.addEventListener('click', e => e.preventDefault());
     return b;
   }
@@ -113,7 +115,7 @@ const Touch = (() => {
       button('+', 'Zoom in', () => zoom(1)),
       button('−', 'Zoom out, more map', () => zoom(-1)),
       button('⏎', 'Enter: end of turn, or OK', () => key(K.enter)),
-      button('⌨', 'Keyboard, to type a name', () => keyboard()),
+      button('⌨', 'Keyboard, to type a name (tap again to put it away)', keyboard),
       ...(fullscreenAllowed() ? [button('⛶', 'Fullscreen', () => fullscreen())] : []));
     orders.replaceChildren(...ORDERS.map(o => button(...o)));
     $('t-dialog').replaceChildren(...DIALOG.map(o => button(...o)));
@@ -181,6 +183,7 @@ const Touch = (() => {
   function down(e) {
     if (touch) return;                       // one finger at a time
     e.preventDefault();
+    typed(false);
     $('t-layer').setPointerCapture(e.pointerId);
     const [x, y] = at(e);
     touch = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x, y, dx: 0, dy: 0, moved: false, held: false, long: false };
@@ -256,9 +259,13 @@ const Touch = (() => {
   // Phones show their keyboard for a text field, not a canvas: a hidden
   // field takes the typing and sends it on as keystrokes.
   function keyboard() {
+    typed(document.activeElement !== $('t-type'));
+  }
+  // The keyboard up (the hidden field focused) or away.
+  function typed(up) {
     const f = $('t-type');
-    f.value = '';
-    f.focus();
+    if (up) { f.value = ''; f.focus(); }
+    else if (document.activeElement === f) f.blur();
   }
 
   // ---------------------------------------------------------- start
