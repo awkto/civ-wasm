@@ -1,11 +1,11 @@
 # civ-wasm: build the WebAssembly game and publish it to GitHub Pages.
-# main is the site's root; the dev branch, while it exists, is a preview
-# under /dev/. The site holds no game files; players import their own.
+# main is the site's root; the dev and mobile branches, while they exist,
+# are previews under /dev/ and /mobile/. The site holds no game files; players import their own.
 name: Pages
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main, dev, mobile]
   workflow_dispatch:
 
 permissions:
@@ -25,17 +25,24 @@ jobs:
         with:
           ref: main
           path: main
-      - name: Check for the preview branch
+      - name: Check for the preview branches
         id: preview
         run: |
-          if git ls-remote --exit-code --heads "https://github.com/${{ github.repository }}" dev >/dev/null; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          fi
+          for b in dev mobile; do
+            if git ls-remote --exit-code --heads "https://github.com/${{ github.repository }}" $b >/dev/null; then
+              echo "$b=true" >> "$GITHUB_OUTPUT"
+            fi
+          done
       - uses: actions/checkout@v4
-        if: steps.preview.outputs.exists == 'true'
+        if: steps.preview.outputs.dev == 'true'
         with:
           ref: dev
           path: dev
+      - uses: actions/checkout@v4
+        if: steps.preview.outputs.mobile == 'true'
+        with:
+          ref: mobile
+          path: mobile
       - name: Install Ninja
         run: sudo apt-get update && sudo apt-get install -y ninja-build
       - name: Install Emscripten
@@ -45,17 +52,21 @@ jobs:
           "$HOME/emsdk/emsdk" activate 6.0.13
       - name: Build main
         run: main/tools/wasm/build.sh
-      - name: Build the preview
-        if: steps.preview.outputs.exists == 'true'
-        run: dev/tools/wasm/build.sh
+      - name: Build the previews
+        run: |
+          for b in dev mobile; do
+            if [ -d $b ]; then $b/tools/wasm/build.sh; fi
+          done
       - name: Assemble the site
         run: |
           mkdir site
           cp -r main/build-web/site/. site/
-          if [ -d dev/build-web/site ]; then
-            mkdir site/dev
-            cp -r dev/build-web/site/. site/dev/
-          fi
+          for b in dev mobile; do
+            if [ -d $b/build-web/site ]; then
+              mkdir site/$b
+              cp -r $b/build-web/site/. site/$b/
+            fi
+          done
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
