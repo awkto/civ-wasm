@@ -27,7 +27,7 @@ The server holding the zip must allow cross-origin requests.
 - **The map fills the window.** The View setting picks a zoom (1.5× to 4×,
   or the classic 320×200); the map shows as many tiles as fit, and the other
   screens keep their original size. Resizing the window, or the **− / +**
-  buttons in the top-right toolbar, change it during a game.
+  buttons in Settings, change it during a game.
 - **Windows map art.** Add `civdata4.rsc` from Civilization for Windows
   (1993), on its own or inside that game's folder or .zip, and the map uses
   the Windows version's terrain, units, cities and city screen, drawn at
@@ -43,7 +43,11 @@ The server holding the zip must allow cross-origin requests.
   original speed).
 - **Enemy moves shown, fast or skipped.** Skipped means the map no longer
   jumps to each move another civilization makes. The setting is on the start
-  page, and the toolbar's **Enemies** button changes it during a game.
+  page and in Settings during a game.
+- **Settings while playing.** The Settings button changes zoom, display,
+  map art, animation speed, enemy moves, the city blink and autosave in
+  the middle of a game, and saves and goes back to the start page to begin
+  or continue another game.
 - **Display filters.** Crisp pixels, raw pixels, hq4x smoothing or bilinear, always
   at the original 4:3 shape. Fullscreen is in the toolbar (or F11).
 

@@ -112,8 +112,7 @@ const Touch = (() => {
     const side = $('t-side'), orders = $('t-orders');
     side.replaceChildren(
       button('☰', 'Menu: tax, advisors, world, Civilopedia, settings', () => sheet(true)),
-      button('+', 'Zoom in', () => zoom(1)),
-      button('−', 'Zoom out, more map', () => zoom(-1)),
+      button('⚙', 'Settings: zoom, display, map art, speed, enemy moves, start page', () => settings(true)),
       button('⏎', 'Enter: end of turn, or OK', () => key(K.enter)),
       button('⌨', 'Keyboard, to type a name (tap again to put it away)', keyboard),
       ...(fullscreenAllowed() ? [button('⛶', 'Fullscreen', () => fullscreen())] : []));
@@ -141,7 +140,6 @@ const Touch = (() => {
   function sheet(open) {
     $('t-menu').hidden = !open;
     if (open) {
-      $('t-enemy').textContent = ENEMY_LABEL[$('enemy-moves').value];
       $('t-ios').hidden = fullscreenAllowed() || matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches;
     }
   }
@@ -289,10 +287,7 @@ const Touch = (() => {
     layer.addEventListener('pointercancel', up);
     $('t-close').addEventListener('click', () => sheet(false));
     $('t-menu').addEventListener('pointerdown', e => { if (e.target === $('t-menu')) sheet(false); });
-    $('t-zoom-in').addEventListener('click', () => zoom(1));
-    $('t-zoom-out').addEventListener('click', () => zoom(-1));
-    $('t-enemy').addEventListener('click', () => { $('enemy').click(); $('t-enemy').textContent = ENEMY_LABEL[$('enemy-moves').value]; });
-    $('t-leave').addEventListener('click', () => { dispatchEvent(new Event('pagehide')); setTimeout(() => location.reload(), 300); });
+    $('t-open-settings').addEventListener('click', () => { sheet(false); settings(true); });
     const f = $('t-type');
     // Its keys are sent below; SDL's own listeners must not get them twice.
     for (const t of ['keydown', 'keyup', 'keypress']) f.addEventListener(t, e => e.stopPropagation());

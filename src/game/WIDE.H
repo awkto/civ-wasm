@@ -17,6 +17,7 @@ extern void autosave(void);
 extern int civwasm_enemy_moves;         /* --enemy-moves: 0 shown, 1 fast, 2 skipped (set while playing too) */
 extern int civwasm_tap_moves;           /* --touch: a click next to the active unit moves it */
 extern int civwasm_tap_plain;           /* ...unless the page marked this click plain (a long press) */
+extern int civwasm_city_blink;          /* cities needing a new build blink (UNITS.C; set while playing too) */
 extern int civwasm_browser_saves;       /* --browser-saves: the page keeps the saves; no AutoSave */
 /* How much further a centred view's corner sits from its centre than in
  * the original 15 x 12 view: reveal(civ, x - 7 - WIDE_DX, y - 6 - WIDE_DY). */

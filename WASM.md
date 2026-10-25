@@ -34,6 +34,19 @@ and mouse, and `--browser-saves` turns off the game's own AutoSave (slots
 4-9). A turn-0 save loads as a new game, so the first turn has none.
 Everything lives in the browser's IndexedDB.
 
+### Settings while playing
+
+The toolbar's Settings button opens an overlay holding the start page's
+own options, which apply at once: View (zoom, also − and +), Display
+(`civwasm_set_filter`, taken at the next frame), Map art
+(`civwasm_show_skin`; the page always loads `civdata4.rsc` when it has it,
+with `--skin-hidden` for the DOS art), Animations
+(`civwasm_set_anim_speed`), Enemy moves, the city blink
+(`civwasm_set_city_blink`, `--no-city-blink`) and Autosave
+(`civwasm_set_autosave`). "Save and go to the start page" asks for an
+autosave at the next wait for an order (`civwasm_save_now`), files it under
+the game and reloads.
+
 ### Enemy moves
 
 `--enemy-moves show|fast|skip` (the page's Enemy moves setting, and its
