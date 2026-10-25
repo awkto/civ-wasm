@@ -67,7 +67,8 @@ events) and `civwasm_key` (BIOS keystrokes, the game's own shortcuts).
 - `civwasm_wide_view` tells the page whether the map is showing, so it can
   switch to OK, Back and arrow buttons on dialogs and the city screen.
 
-Fullscreen also locks landscape where the browser allows it. An iPhone has
+The layout is for a phone held upright: the picture on top, the buttons
+in rows under it. Fullscreen also locks portrait where the browser allows it. An iPhone has
 no fullscreen for a page; `manifest.webmanifest` lets Add to Home Screen
 open it without browser chrome.
 

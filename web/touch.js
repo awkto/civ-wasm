@@ -132,7 +132,7 @@ const Touch = (() => {
   function fullscreen() {
     if (document.fullscreenElement) return document.exitFullscreen();
     document.documentElement.requestFullscreen({ navigationUI: 'hide' })
-      .then(() => screen.orientation?.lock?.('landscape').catch(() => {}))
+      .then(() => screen.orientation?.lock?.('portrait').catch(() => {}))
       .catch(() => {});
   }
 

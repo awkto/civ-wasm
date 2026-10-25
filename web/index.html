@@ -70,35 +70,28 @@
   #toolbar button { padding: 5px 10px; font-size: 13px; background: rgba(20,24,32,.85); }
   .drop { outline: 2px dashed var(--accent); outline-offset: 4px; }
   /* Touch controls (touch.js): buttons beside the picture, a layer over it. */
-  body.touch { --gl: calc(58px + env(safe-area-inset-left)); --gr: calc(116px + env(safe-area-inset-right)); --gb: 0px;
+  /* Touch controls (touch.js), made for a phone held upright: the picture
+     on top, the buttons under it, a layer over the picture for gestures. */
+  body.touch { --bar: calc(56px + env(safe-area-inset-bottom)); --gb: calc(var(--bar) + 94px);
     -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   body.touch.playing #toolbar, #t-side, #t-orders, #t-dialog, #t-layer { display: none; }
   /* A canvas sized by CSS alone, so SDL follows it (an auto width would not stretch it). */
-  body.touch #canvas, #t-layer { left: var(--gl); top: 0; width: calc(100vw - var(--gl) - var(--gr));
-    height: calc(100vh - var(--gb)); height: calc(100dvh - var(--gb)); }
+  body.touch #canvas, #t-layer { left: 0; top: env(safe-area-inset-top); width: 100vw;
+    height: calc(100vh - var(--gb) - env(safe-area-inset-top)); height: calc(100dvh - var(--gb) - env(safe-area-inset-top)); }
   body.touch.playing #t-side, body.touch.playing #t-orders, body.touch.playing #t-layer { display: grid; }
   body.touch.playing.t-flat #t-orders { display: none; }
   body.touch.playing.t-flat #t-dialog { display: grid; }
   #t-layer { position: fixed; z-index: 5; touch-action: none; }
-  #t-side, #t-orders, #t-dialog { position: fixed; z-index: 6; gap: 6px; padding: 6px; box-sizing: border-box;
-    align-content: center; touch-action: manipulation; }
-  #t-side { left: 0; top: 0; bottom: 0; width: var(--gl); padding-left: calc(6px + env(safe-area-inset-left));
-    grid-auto-rows: 44px; grid-template-columns: 1fr; }
-  #t-orders, #t-dialog { right: 0; top: 0; bottom: 0; width: var(--gr); padding-right: calc(6px + env(safe-area-inset-right));
-    grid-template-columns: 1fr 1fr; grid-auto-rows: minmax(34px, 44px); }
-  #t-dialog { grid-template-columns: 1fr; }
-  #t-side button, #t-orders button, #t-dialog button { padding: 0; font-size: 12px; border-radius: 8px;
+  #t-side, #t-orders, #t-dialog { position: fixed; z-index: 6; left: 0; right: 0; gap: 6px; box-sizing: border-box;
+    padding: 6px calc(6px + env(safe-area-inset-right)) 0 calc(6px + env(safe-area-inset-left)); touch-action: manipulation; }
+  #t-side { bottom: 0; height: var(--bar); padding-bottom: calc(6px + env(safe-area-inset-bottom));
+    grid-auto-flow: column; grid-auto-columns: 1fr; }
+  #t-orders, #t-dialog { bottom: var(--bar); height: 94px; grid-template-columns: repeat(6, 1fr); grid-auto-rows: 40px; }
+  #t-dialog { grid-template-columns: repeat(5, 1fr); }
+  #t-side button, #t-orders button, #t-dialog button { padding: 0; font-size: 13px; border-radius: 8px;
     background: #1c212c; touch-action: manipulation; }
   #t-side button { font-size: 20px; }
   #t-orders button.armed { background: var(--accent); color: #1a1505; }
-  @media (orientation: portrait) {
-    body.touch { --gl: 0px; --gr: 0px; --gb: calc(150px + env(safe-area-inset-bottom)); }
-    #t-side { top: auto; bottom: 0; right: 0; width: auto; height: calc(56px + env(safe-area-inset-bottom));
-      padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); grid-auto-flow: column; grid-auto-columns: 1fr; }
-    #t-orders, #t-dialog { top: auto; left: 0; bottom: calc(56px + env(safe-area-inset-bottom)); width: auto; height: 94px;
-      padding: 6px 6px 0; grid-template-columns: repeat(6, 1fr); grid-auto-rows: 40px; }
-    #t-dialog { grid-template-columns: repeat(5, 1fr); }
-  }
   #t-ring { position: fixed; z-index: 7; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%;
     border: 3px solid var(--accent); opacity: 0; pointer-events: none; }
   #t-ring.show { animation: t-ring .45s ease-out; }
