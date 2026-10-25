@@ -253,15 +253,21 @@ extern void far reveal(int group, int x, int y);    /* civ-wasm: blink_unit redr
 extern void uinit(int player, int unit);
 
 /* civ-wasm: cities whose production needs changing (CITYMGT.C
- * city_change_due, the city screen's blinking Change button) blink with
- * the active unit: a yellow ring and minimap dot, then the tile drawn
- * again. The on-phase runs after the unit's tile was drawn without the
- * unit, so a ring on the unit's own city never covers its sprite. */
-static void blink_cities(int owner, int on)
+ * city_change_due, the city screen's blinking Change button) blink on the
+ * map at a quarter of the active unit's pace: a yellow ring and minimap
+ * dot for two of its blinks, then the tile drawn again for two. `step` is
+ * 1 at each of the unit's blinks and 0 to put the cities back, which
+ * blink_unit does before it returns. */
+static void blink_cities(int owner, int step)
 {
-    int i, sx, sy, n;
+    static int beat, ringed;
+    int i, sx, sy, n, on;
     if (still == 1 || bare_flag != 0)
         return;
+    on = step && (beat++ & 2) == 0;
+    if (!on && !ringed)
+        return;
+    ringed = on;
     for (i = 0; i < 128; i++) {
         if (townbuf[i].status == -1 || townbuf[i].owner != owner || !city_change_due(i))
             continue;
@@ -272,10 +278,9 @@ static void blink_cities(int owner, int on)
         sy = ((townbuf[i].y - map_y0) << 4) + 8;
         if (sx < 80 || sx >= screen_w || sy < 8 || sy > screen_h - 8)
             continue;
-        if (on) {               /* two pixels thick: it replaces a white ring */
-            draw_box(sx, sy, 15, 15, 14);
+        if (on)
             draw_box(sx + 1, sy + 1, 13, 13, 14);
-        } else {
+        else {
             n = city_label_n;   /* seen_map queues a name label; reveal owns that list */
             seen_map(townbuf[i].x, townbuf[i].y);
             city_label_n = n;
@@ -329,7 +334,6 @@ again:
         mouse_on();
         flip(civwasm_real_ticks(kbhit()? 1 : 10));   /* civ-wasm: blinks at the original pace */
         mouse_off();
-        blink_cities(owner, 0);     /* civ-wasm */
         if (index < 128) {
             unit_redraw(owner, index);
             if (b >= 0 && b < 50)
@@ -342,6 +346,9 @@ again:
         flip(civwasm_real_ticks(kbhit()? 1 : 10));   /* civ-wasm: blinks at the original pace */
         poll_mouse();
     } while (!kbhit() && !mse_held);
+    mouse_off();
+    blink_cities(owner, 0);     /* civ-wasm: no ring left behind */
+    mouse_on();
 }
 
 /* Genuine unit-creation body, 0866:[0CF5,0F10).

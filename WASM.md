@@ -76,8 +76,8 @@ open it without browser chrome.
 A city whose production can no longer complete (an improvement it already
 has, a wonder built elsewhere, a spaceship part after launch, a unit at the
 127-unit cap) blinks on the map while the game waits for an order or at End
-of Turn: a yellow ring around the city and a yellow minimap dot, at the
-pace of the active unit's blink. It is the same test that makes the city
+of Turn: a thin yellow ring around the city and a yellow minimap dot, at
+a quarter of the active unit's pace (on for two of its blinks, off for two). It is the same test that makes the city
 screen's Change button blink (CITYMGT.C `city_change_due`), drawn from
 UNITS.C `blink_unit`; changing the production stops it.
 
