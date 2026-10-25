@@ -1,3 +1,4 @@
+#include "WIDE.H"                /* civ-wasm */
 /* Overlay 22: Diplomat actions, bribe unit, nuke animation, city revolt, city founded.
  * All five functions and resident DATA contribution.
  */
@@ -282,7 +283,7 @@ void buy_u(int player, int unit_id, int bribing_player)
     }
 
     if (player == civnow) {
-        reveal(player, armydata[player][unit_id].x - 8, armydata[player][unit_id].y - 6);
+        reveal(player, armydata[player][unit_id].x - 8 - WIDE_DX, armydata[player][unit_id].y - 6 - WIDE_DY);
         strcpy(msgtext, civ_adjectives[player]);
         strcat(msgtext, " ");
         strcat(msgtext, utypes[armydata[player][unit_id].type].name);
@@ -383,7 +384,7 @@ void city_revolt(int city_id, int new_owner)
 
     if (civ == civnow || new_owner == civnow || (treaties[civnow][civ].a & 0x40) || (treaties[civnow][new_owner].a & 0x40)) {
         if (map_visible_to[townbuf[city_id].x * 50 + townbuf[city_id].y] & (1 << civnow))
-            reveal(civnow, townbuf[city_id].x - 8, townbuf[city_id].y - 5);
+            reveal(civnow, townbuf[city_id].x - 8 - WIDE_DX, townbuf[city_id].y - 5 - WIDE_DY);
         strcpy(msgtext, civ_names[civ]);
         strcat(msgtext, new_owner == 0 ? " declare\nindependence in\n" : " rebel!\nCivil War in\n");
         append_place_name(city_id);

@@ -1,3 +1,4 @@
+#include "WIDE.H"                /* civ-wasm */
 /* Resident code segment 0238 (0008..1CBE): menus, the turn processor,
    the Hall of Fame / ad screens, uprisings, civilization ratings, the status
    panel and palace drawing, the global-warming events and player screen setup.
@@ -157,8 +158,8 @@ void game_turn(void)
         ++i;
     } while (i < 8);
     if (turn_tick == 0) {
-        map_x0 = group_records[civnow][0].x - 7;
-        map_y0 = group_records[civnow][0].y - 6;
+        map_x0 = group_records[civnow][0].x - view_cols / 2;
+        map_y0 = group_records[civnow][0].y - view_rows / 2;
         sel_player();
         if (cur_tier == 0) {
             uinit(civnow, 0);
@@ -435,7 +436,7 @@ void uprising(void)
     if (dx >= 99)
         return;
     if (units[i].owner == civnow && (map_visible_to[50 * x + y] & (1 << civnow))) {
-        reveal(civnow, (unsigned char) units[i].x - 8, (unsigned char) units[i].y - 6);
+        reveal(civnow, (unsigned char) units[i].x - 8 - WIDE_DX, (unsigned char) units[i].y - 6 - WIDE_DY);
         strcpy(msgtext, "Travellers report:\n");
         strcat(msgtext, advance_owners[0x46] & 7 ? "Guerrilla uprising\nnear " : advance_owners[0x44] & 7 ? "Native unrest\nnear " : "Barbarian uprising\nnear ");
         append_place_name(i);
@@ -513,7 +514,7 @@ void rate_civs(void)
 
 void draw_banner(void)
 {
-    rect_fill(scrbuf, 0, 0, 320, 8, 0);
+    rect_fill(scrbuf, 0, 0, screen_w, 8, 0);   /* civ-wasm: was 320 */
     draw_string("G\207AME", 8, 1, 15);
     draw_string("O\207RDERS", 64, 1, 15);
     draw_string("A\207DVISORS", 128, 1, 15);
@@ -753,7 +754,7 @@ void sel_player(void)
         set_palette(5, 0, 0, 0);
     mouse_off();
     reveal(civnow, map_x0, map_y0);
-    panel_prep(0, 0x61, 0x50, 0x67);
+    panel_prep(0, 0x61, 0x50, screen_h - 0x61);    /* civ-wasm: was 0x67, to row 200 */
     mouse_on();
     load_player_palette();
     player_screen_flag = 0;

@@ -117,6 +117,8 @@ int civ_units_ordered[8][28];   /* cities building each unit type, per civ */
 int linewide;                   /* widest dialog line */
 int cmd_code;                   /* key pressed in the menu bar */
 int map_x0;                     /* map view left column */
+int view_cols = 15, view_rows = 12;     /* civ-wasm: map view size (WIDE.H) */
+int screen_w = 320, screen_h = 200;
 int statuspics[320];            /* sprites cut from the sprite sheet; GLOBALS.H names the parts */
 int saved_found;                /* mask of saved game slots present */
 union REGS bios_call_reg_block_io;      /* registers for BIOS calls */

@@ -1,3 +1,4 @@
+#include "WIDE.H"                /* civ-wasm */
 /* UNITS.C: complete resident 0866:[0006,2786), 38 functions.
  * Unit stacks, movement, creation, exploration and animation.
  * /AM /Gs /Oas reproduces all CODE/DATA/CONST and ordered relocations. */
@@ -602,14 +603,14 @@ int adj_grp();
 void map_center(int group, int x, int y)
 {
     int refresh = 0;
-    if (x < 16 && map_x0 > 64)
+    if (x < 16 && map_x0 > 79 - view_cols)
         x += 80;
-    if (x < map_x0 + 2 || x > map_x0 + 13)
+    if (x < map_x0 + 2 || x > map_x0 + view_cols - 2)
         refresh = 1;
-    if (y < map_y0 + 2 || y > map_y0 + 9)
+    if (y < map_y0 + 2 || y > map_y0 + view_rows - 3)
         refresh = 1;
     if (refresh)
-        reveal(group, wrap_x(x - 8), y - 6);
+        reveal(group, wrap_x(x - (view_cols + 1) / 2), y - view_rows / 2);
 }
 
 int if_open(int group, int x, int y)

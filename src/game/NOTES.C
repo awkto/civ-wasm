@@ -1,3 +1,4 @@
+#include "WIDE.H"                /* civ-wasm */
 #include <string.h>
 #include "CIV.H"
 #include "CAPTURE.H"
@@ -77,7 +78,7 @@ void advice(int civ, int idx)
             good_ = 0;
     }
     if (good_) {
-        reveal(civnow, armydata[civ][idx].x - 7, armydata[civ][idx].y - 6);
+        reveal(civnow, armydata[civ][idx].x - 7 - WIDE_DX, armydata[civ][idx].y - 6 - WIDE_DY);
         notice_a("*BUILDCITY");
         return;
     }

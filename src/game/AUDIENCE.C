@@ -1,3 +1,4 @@
+#include "WIDE.H"                /* civ-wasm */
 
 #include "CIV.H"
 #include "CAPTURE.H"
@@ -694,7 +695,7 @@ int audience_open(int civ, int x, int y)
     audience_active = 1;
     if (mouse_mode == 0) {
         if (x != -1) {
-            reveal(civnow, x - 8, y - 2);
+            reveal(civnow, x - 8 - WIDE_DX, y - 2 - WIDE_DY);
         }
 reload_text:
         strcpy(msgtext, "An emissary from the\n");

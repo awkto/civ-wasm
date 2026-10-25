@@ -1,3 +1,4 @@
+#include "WIDE.H"                /* civ-wasm */
 #include "CAPTURE.H"
 #include "CONTROL.H"
 #include "CORE.H"
@@ -100,7 +101,7 @@ void goto_city(void)
     menu_begin();
     city = find_city("Where in the heck is ... (city name)");
     if (city != -1 && (map_visible_to[50 * townbuf[city].x + townbuf[city].y] & (1 << civnow))) {
-        reveal(civnow, townbuf[city].x - 7, townbuf[city].y - 6);
+        reveal(civnow, townbuf[city].x - 7 - WIDE_DX, townbuf[city].y - 6 - WIDE_DY);
     } else {
         rect_fill(scrbuf, 64, 78, 224, 10, 15);
         draw_string("Unknown city.", 82, 80, 0);

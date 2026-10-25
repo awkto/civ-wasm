@@ -1,3 +1,4 @@
+#include "WIDE.H"                /* civ-wasm */
 /* Overlay 20: City creation, city random events, civilization score calculation.
  * Complete 4-function translation unit (5,188 code bytes, 434 resident DATA bytes, 8 CONST bytes).
  */
@@ -452,7 +453,7 @@ check_city:                ;
         msgtext[weight] = 0;
         advisor = 2;
         show_msg(msgtext, 100, 64);
-        reveal(civnow, townbuf[city].x - 10, townbuf[city].y - 6);
+        reveal(civnow, townbuf[city].x - 10 - WIDE_DX, townbuf[city].y - 6 - WIDE_DY);
     }
 }
 
