@@ -422,7 +422,8 @@ void page_dissolve(int16_t n, int16_t time)
     src = page_mem[n & 7];
     dst = page_mem[0];
     reciv_page_wide(0, page_wide[n & 7]);
-    per_frame = time ? (uint16_t) (0x2260 / (uint16_t) time) : 0;
+    /* civ-wasm: --anim-speed copies more pixels per frame. */
+    per_frame = time ? (uint16_t) (0x2260 / (uint16_t) time * reciv_anim_speed / 10) : 0;
     if (time && !per_frame)
         per_frame = 1;
     frame = reciv_vsync_count();

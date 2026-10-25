@@ -60,6 +60,7 @@ void reciv_poll(void);
 void reciv_wait(void);           /* reciv_poll, then sleep briefly */
 void reciv_spin(void);           /* reciv_poll for a polling query */
 uint32_t reciv_vsync_count(void);
+extern int reciv_anim_speed;     /* civ-wasm: animation speed in tenths (10 = original) */
 
 /* -------------------------------------------------------------- input */
 

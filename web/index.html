@@ -87,6 +87,14 @@
         <option value="bilinear">Blurred (bilinear)</option>
       </select>
     </label>
+    <label class="field">Animations
+      <select id="anim-speed">
+        <option value="2.5">2.5× faster</option>
+        <option value="2">2× faster</option>
+        <option value="3">3× faster</option>
+        <option value="1">Original speed</option>
+      </select>
+    </label>
     <label class="check"><input type="checkbox" id="autosave" checked> Autosave as you play (Continue resumes there)</label>
     <label class="check"><input type="checkbox" id="skip-quiz" checked> Skip the copy-protection quiz</label>
     <div id="status">Starting…</div>
@@ -251,7 +259,7 @@ $('forget').addEventListener('click', async () => {
 });
 
 // Remember the display and view choices (a per-browser convenience).
-for (const [id, key] of [['filter', 'civ-filter'], ['view', 'civ-view']]) {
+for (const [id, key] of [['filter', 'civ-filter'], ['view', 'civ-view'], ['anim-speed', 'civ-anim-speed']]) {
   try { const v = localStorage.getItem(key); if (v) $(id).value = v; } catch {}
   $(id).addEventListener('change', () => { try { localStorage.setItem(key, $(id).value); } catch {} });
 }
@@ -300,6 +308,7 @@ function start(resume) {
   const args = ['-d', '/civ', '-s', '/saves', '--quick-setup', '--filter', $('filter').value, '--text-filter', 'same', ...screenArg()];
   if ($('skip-quiz').checked) args.push('--skip-quiz');
   if ($('autosave').checked) args.push('--autosave', '3');
+  args.push('--anim-speed', $('anim-speed').value);
   if (resume) args.push('--continue');
   Module.callMain(args);
   // SDL sizes the canvas from its default window until the page resizes;

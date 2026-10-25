@@ -37,12 +37,21 @@ static int in_tick;
 static void fade_tick(void);
 static void palette_tick(void);
 
+/* civ-wasm: --anim-speed. The game paces its full-screen animations by
+ * `ticks` (timer_read: flip and the like) and palette fades by fade_tick;
+ * both run reciv_anim_speed (in tenths) times as fast. Colour cycling,
+ * the music and real time stay as they were. */
+int reciv_anim_speed = 10;
+static int anim_tenths;
+
 /* TIMER.INC timer_tick: once per frame. */
 static void timer_tick(uint64_t frame_time)
 {
     int16_t r;
-    ticks++;
-    fade_tick();
+    for (anim_tenths += reciv_anim_speed; anim_tenths >= 10; anim_tenths -= 10) {
+        ticks++;
+        fade_tick();
+    }
     palette_tick();
     reciv_shake_step();
     if (fast_divisor == 4) {
