@@ -272,9 +272,10 @@ static void blink_cities(int owner, int on)
         sy = ((townbuf[i].y - map_y0) << 4) + 8;
         if (sx < 80 || sx >= screen_w || sy < 8 || sy > screen_h - 8)
             continue;
-        if (on)
+        if (on) {               /* two pixels thick: it replaces a white ring */
+            draw_box(sx, sy, 15, 15, 14);
             draw_box(sx + 1, sy + 1, 13, 13, 14);
-        else {
+        } else {
             n = city_label_n;   /* seen_map queues a name label; reveal owns that list */
             seen_map(townbuf[i].x, townbuf[i].y);
             city_label_n = n;
