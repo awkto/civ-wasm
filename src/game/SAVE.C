@@ -1,3 +1,4 @@
+#include "WIDE.H"                /* civ-wasm */
 /* Overlay 11: save/load dialogs and the original serialized game state.
    Names are provisional; keep the original file format and failure paths. */
 #include <dos.h>
@@ -53,7 +54,13 @@ int load_game(int slot)
     int i, drive, reserve;
     save_mode = 1;
     mouse_off();
-    drive = choose_drive();
+    /* civ-wasm: --continue loads the autosave, slot 9, without asking. */
+    if (civwasm_continue) {
+        civwasm_continue = 0;
+        slot = 9;
+        drive = 0;
+    } else
+        drive = choose_drive();
     if (drive != -1) {
         if (slot == -1) {
             strcpy(msgtext, "\214Select Load File...\n");
@@ -179,6 +186,17 @@ void save_game(int slot)
 }
 
 /* NOLINTEND(clang-diagnostic-deprecated-non-prototype) */
+
+/* civ-wasm: the autosave, slot 9 (listed by Load; Save offers 0-3), written
+ * silently while the game waits for an order (UNITS.C blink_unit). */
+void autosave(void)
+{
+    static char autofile[] = "a:CIVIL9.SVE";
+    int old_error = save_error;
+    save_error = 0;
+    read_save(autofile);
+    save_error = old_error;
+}
 
 int write_save(char *file)
 {

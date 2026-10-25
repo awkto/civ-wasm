@@ -19,6 +19,14 @@ Pushes to `main` build and publish the site to GitHub Pages
 (`.github/workflows/pages.yml`). Upstream's Linux and Windows workflows are
 disabled in this repository. The View setting sizes the game's screen to
 the window (`--screen WxH`): the map fills it, other screens stay 320x200.
+When the window changes, the game takes the new size the next time it
+waits for an order (UNITS.C `blink_unit`, platform `civwasm.c`).
+
+With Autosave on (`--autosave SECONDS`), the game writes slot 9 (CIVIL9.SVE
+and .MAP, through its own silent save routine) at most that often while it
+waits for an order, so a closed tab loses at most the last few seconds.
+Continue (`--continue`) answers the setup questions, skips the introduction
+and loads slot 9. Saves live in the browser's IndexedDB.
 
 ## Building
 

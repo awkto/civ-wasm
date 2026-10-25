@@ -7,6 +7,11 @@
 extern int view_cols, view_rows;        /* 15, 12 */
 extern int screen_w, screen_h;          /* 320, 200 */
 extern void wide_view(int on);          /* show the whole screen (the map) or the classic 320x200 */
+/* Browser services (platform civwasm.c) and the autosave (SAVE.C). */
+extern int civwasm_continue;            /* --continue: load the autosave at once */
+extern int civwasm_idle(int entering);  /* bit 0: resize pending; bit 1: autosave now */
+extern void civwasm_resize(void);
+extern void autosave(void);
 /* How much further a centred view's corner sits from its centre than in
  * the original 15 x 12 view: reveal(civ, x - 7 - WIDE_DX, y - 6 - WIDE_DY). */
 #define WIDE_DX (view_cols / 2 - 7)

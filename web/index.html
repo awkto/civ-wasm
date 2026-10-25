@@ -67,6 +67,7 @@
       <button id="load-url">Load</button>
     </div>
     <div class="row">
+      <button class="primary" id="continue" hidden>Continue</button>
       <button class="primary" id="play" disabled>Play</button>
       <button id="forget" hidden>Forget game files</button>
     </div>
@@ -86,6 +87,7 @@
         <option value="bilinear">Blurred (bilinear)</option>
       </select>
     </label>
+    <label class="check"><input type="checkbox" id="autosave" checked> Autosave as you play (Continue resumes there)</label>
     <label class="check"><input type="checkbox" id="skip-quiz" checked> Skip the copy-protection quiz</label>
     <div id="status">Starting…</div>
     <details>
@@ -122,8 +124,14 @@ const haveGame = () => {
   } catch { return false; }
 };
 
+// The autosave the game writes while waiting for orders (SAVE.C, slot 9).
+const haveAutosave = () => {
+  try { return FS.readdir('/saves').some(n => n.toUpperCase() === 'CIVIL9.SVE'); } catch { return false; }
+};
+
 function refresh() {
   const ok = haveGame();
+  $('continue').hidden = !(ok && haveAutosave());
   $('play').disabled = !ok;
   $('forget').hidden = !ok;
   status(ok ? 'Game files found in this browser. Ready to play.' : 'Choose your Civilization files to begin.');
@@ -247,22 +255,38 @@ for (const [id, key] of [['filter', 'civ-filter'], ['view', 'civ-view']]) {
   try { const v = localStorage.getItem(key); if (v) $(id).value = v; } catch {}
   $(id).addEventListener('change', () => { try { localStorage.setItem(key, $(id).value); } catch {} });
 }
+try { if (localStorage.getItem('civ-autosave') === 'off') $('autosave').checked = false; } catch {}
+$('autosave').addEventListener('change', () => {
+  try { localStorage.setItem('civ-autosave', $('autosave').checked ? 'on' : 'off'); } catch {}
+});
 
 // The game's screen for "fit window": as many game pixels as fit at the
 // chosen zoom (CSS pixels per game pixel), keeping the VGA's tall pixels.
-// The map fills it; other screens stay 320x200. Fixed once the game starts.
-function screenArg() {
+// The map fills it; other screens stay 320x200. When the window changes,
+// the game takes the new size the next time it waits for an order.
+function screenSize() {
   const z = parseFloat($('view').value);
-  if (!z) return [];
-  const w = Math.max(320, Math.floor(innerWidth / z));
-  const h = Math.max(200, Math.floor(innerHeight / (z * 1.2)));
-  return ['--screen', `${w}x${h}`];
+  if (!z) return null;
+  return [Math.max(320, Math.floor(innerWidth / z)), Math.max(200, Math.floor(innerHeight / (z * 1.2)))];
 }
+function screenArg() {
+  const size = screenSize();
+  return size ? ['--screen', `${size[0]}x${size[1]}`] : [];
+}
+let resizeTimer;
+addEventListener('resize', () => {
+  if (!document.body.classList.contains('playing') || !screenSize()) return;
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => Module._civwasm_request_screen(...screenSize()), 300);
+});
 
 // The right button is the game's; keep the browser's menu away from it.
 document.addEventListener('contextmenu', e => { if (document.body.classList.contains('playing')) e.preventDefault(); });
 
-$('play').addEventListener('click', () => {
+$('play').addEventListener('click', () => start(false));
+$('continue').addEventListener('click', () => start(true));
+
+function start(resume) {
   document.body.classList.add('playing');
   const canvas = $('canvas');
   canvas.focus();
@@ -275,11 +299,13 @@ $('play').addEventListener('click', () => {
   document.addEventListener('visibilitychange', () => document.hidden && save());
   const args = ['-d', '/civ', '-s', '/saves', '--filter', $('filter').value, '--text-filter', 'same', ...screenArg()];
   if ($('skip-quiz').checked) args.push('--skip-quiz');
+  if ($('autosave').checked) args.push('--autosave', '3');
+  if (resume) args.push('--continue');
   Module.callMain(args);
   // SDL sizes the canvas from its default window until the page resizes;
   // tell it about the real size now that the window exists.
   dispatchEvent(new Event('resize'));
-});
+}
 
 $('fullscreen').addEventListener('click', () => {
   if (document.fullscreenElement) document.exitFullscreen();

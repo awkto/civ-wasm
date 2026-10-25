@@ -61,6 +61,37 @@ void reciv_pages_init(void)
         page_mem[i] = page_own[0];
 }
 
+/* civwasm.c's resize: new buffers of the new size, keeping what fits of
+ * each page from its top-left corner. */
+static uint8_t *resized(uint8_t *old, int old_w, int old_h)
+{
+    uint8_t *buf = calloc(PAGE_BYTES, 1);
+    int w = old_w < reciv_screen_w ? old_w : reciv_screen_w;
+    int h = old_h < reciv_screen_h ? old_h : reciv_screen_h;
+    if (!buf)
+        reciv_fatal("no memory for %dx%d pages", reciv_screen_w, reciv_screen_h);
+    if (old)
+        for (int y = 0; y < h; y++)
+            memcpy(buf + (size_t) y * SW, old + (size_t) y * old_w, (size_t) w);
+    free(old);
+    return buf;
+}
+
+void reciv_pages_resize(int old_w, int old_h)
+{
+    uint8_t *old_own[8];
+    memcpy(old_own, page_own, sizeof old_own);
+    for (int i = 0; i < 8; i++) {
+        background_pages[i] = resized(background_pages[i], old_w, old_h);
+        text_pages[i] = resized(text_pages[i], old_w, old_h);
+        if (page_own[i])
+            page_own[i] = resized(page_own[i], old_w, old_h);
+    }
+    for (int i = 0; i < 8; i++)
+        page_mem[i] = page_mem[i] == old_own[0] ? page_own[0] : page_own[i];
+    reciv_video_dirty();
+}
+
 uint8_t *reciv_screen_pixels(void)
 {
     return page_mem[0];

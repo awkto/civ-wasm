@@ -81,25 +81,10 @@ int reciv_video_text_filter(const char *name)
     return 0;
 }
 
-void reciv_video_open(void)
+/* The screen's pixel buffers and textures, at reciv_screen_w x
+ * reciv_screen_h (civ-wasm: rebuilt when the screen is resized). */
+static void screen_textures(void)
 {
-    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS))
-        reciv_fatal("SDL_Init: %s", SDL_GetError());
-#ifdef __EMSCRIPTEN__
-    /* civ-wasm: draw at the display's pixel density, so the browser does not
-     * smooth the canvas again on a high-DPI screen. OPENGL up front: otherwise
-     * the WebGL renderer recreates the window, and the recreated one no longer
-     * follows the canvas's CSS size. */
-    window = SDL_CreateWindow("Civilization", 960, 720,
-                              SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_OPENGL);
-#else
-    window = SDL_CreateWindow("Civilization", 960, 720, SDL_WINDOW_RESIZABLE);
-#endif
-    if (!window)
-        reciv_fatal("SDL_CreateWindow: %s", SDL_GetError());
-    renderer = SDL_CreateRenderer(window, NULL);
-    if (!renderer)
-        reciv_fatal("SDL_CreateRenderer: %s", SDL_GetError());
     frame_pixels = SDL_malloc((size_t) SW * SH * sizeof(uint32_t));
     text_pixels = SDL_malloc((size_t) SW * SH * sizeof(uint32_t));
     if (!frame_pixels || !text_pixels)
@@ -137,6 +122,46 @@ void reciv_video_open(void)
             SDL_SetTextureScaleMode(filtered_texture, SDL_SCALEMODE_LINEAR);
         }
     }
+}
+
+/* civwasm.c's resize: drop the old size's buffers and textures. */
+void reciv_video_resize(void)
+{
+    SDL_free(frame_pixels);
+    SDL_free(text_pixels);
+    SDL_free(filtered_pixels);
+    frame_pixels = text_pixels = filtered_pixels = NULL;
+    SDL_DestroyTexture(texture);
+    SDL_DestroyTexture(text_texture);
+    SDL_DestroyTexture(filtered_texture);
+    SDL_DestroyTexture(scaled_texture);
+    SDL_DestroyTexture(text_scaled_texture);
+    texture = text_texture = filtered_texture = scaled_texture = text_scaled_texture = NULL;
+    scaled_factor = text_scaled_factor = 0;
+    screen_textures();
+    dirty = 1;
+}
+
+void reciv_video_open(void)
+{
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS))
+        reciv_fatal("SDL_Init: %s", SDL_GetError());
+#ifdef __EMSCRIPTEN__
+    /* civ-wasm: draw at the display's pixel density, so the browser does not
+     * smooth the canvas again on a high-DPI screen. OPENGL up front: otherwise
+     * the WebGL renderer recreates the window, and the recreated one no longer
+     * follows the canvas's CSS size. */
+    window = SDL_CreateWindow("Civilization", 960, 720,
+                              SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_OPENGL);
+#else
+    window = SDL_CreateWindow("Civilization", 960, 720, SDL_WINDOW_RESIZABLE);
+#endif
+    if (!window)
+        reciv_fatal("SDL_CreateWindow: %s", SDL_GetError());
+    renderer = SDL_CreateRenderer(window, NULL);
+    if (!renderer)
+        reciv_fatal("SDL_CreateRenderer: %s", SDL_GetError());
+    screen_textures();
     SDL_HideCursor();
 }
 

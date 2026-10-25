@@ -9,12 +9,19 @@ var Module = {
   print: t => console.log(t), printErr: t => console.warn(t),
   onRuntimeInitialized() {
     FS.mkdir('/saves');
+    FS.mount(IDBFS, {}, '/saves');
+    FS.syncfs(true, () => { start(); setInterval(() => FS.syncfs(false, () => {}), 2000); });
+  },
+};
+function start() {
     const q = new URLSearchParams(location.search), args = ['-d', '/civ', '-s', '/saves', '--skip-quiz'];
     if (q.get('screen')) args.push('--screen', q.get('screen'));
     if (q.get('filter')) args.push('--filter', q.get('filter'));
+    if (q.get('autosave')) args.push('--autosave', q.get('autosave'));
+    if (q.has('continue')) args.push('--continue');
+    window.civResize = (w, h) => Module._civwasm_request_screen(w, h);
     Module.callMain(args);
-  },
-};
+}
 </script>
 <script src="reciv.js"></script>
 </body></html>

@@ -248,15 +248,19 @@ extern int seen_map(int, int);
 
 extern void flip(int);
 extern void unit_redraw(int, int);
+extern void far reveal(int group, int x, int y);    /* civ-wasm: blink_unit redraws after a resize */
+extern void uinit(int player, int unit);
 
 void blink_unit(int owner, int index, int x, int y)
 {
     int a, b, c, d, e, f, g;
+    int idle, entering = 1;     /* civ-wasm */
+again:
     c = -1;
     if (x != -1) {
         c = (wrap_x(x - map_x0) << 4) + 80;
         d = ((y - map_y0) << 4) + 8;
-        if (c < 80 || c >= 320 || d < 8 || d > 192)
+        if (c < 80 || c >= screen_w || d < 8 || d > screen_h - 8)    /* civ-wasm: was 320, 192 */
             c = -1;
     }
     g = view_yorg < 0 ? 0 : view_yorg;
@@ -264,6 +268,20 @@ void blink_unit(int owner, int index, int x, int y)
     a = wrap_x(armydata[owner][index].x - view_xorg);
     b = armydata[owner][index].y - g + e;
     do {
+        /* civ-wasm: waiting for an order is where the screen follows the
+         * window and the game autosaves (platform civwasm.c). */
+        idle = civwasm_idle(entering);
+        entering = 0;
+        if (idle & 2)
+            autosave();
+        if (idle & 1) {
+            mouse_off();
+            civwasm_resize();
+            mouse_on();
+            reveal(owner, map_x0, map_y0);
+            uinit(owner, index);
+            goto again;
+        }
         mouse_off();
         if (index < 128) {
             seen_map(armydata[owner][index].x, armydata[owner][index].y);
