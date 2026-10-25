@@ -157,7 +157,8 @@ static void skin_copy(uint16_t sp, uint32_t si, uint16_t dp, uint32_t di, uint16
 
 /* recolour_rect for the skin: the civilization colour of a unit picture
  * (skin colours 12 and 13, where DOS has 10 and 2) and any DAC colour
- * already put there follow the page's change of colour. */
+ * already put there follow the page's change of colour. A sentry (DOS 5
+ * to 7) has its skin colours washed out. */
 static void skin_recolour(uint16_t page, uint32_t di, uint16_t w, uint16_t h, uint8_t from, uint8_t to)
 {
     uint8_t *skin = skin_get(page);
@@ -170,6 +171,8 @@ static void skin_recolour(uint16_t page, uint32_t di, uint16_t w, uint16_t h, ui
             uint8_t *p = skin + (size_t) r * SKW + c;
             if (*p == 128 + from || (like && *p == like))
                 *p = (uint8_t) (to < 128 ? 128 + to : 0);
+            else if (from == 5 && to == 7 && *p && *p < 128)
+                *p = reciv_skin_washed[*p];
         }
 }
 
@@ -399,6 +402,7 @@ void reciv_mgraphic_install(uint16_t seg)
 /* dac_write: the assembly spreads the writes over vertical retraces. */
 static void dac_write(int index, int count, const uint8_t *rgb)
 {
+    reciv_fade_clear();
     reciv_dac_write(index, count, rgb);
 }
 

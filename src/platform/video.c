@@ -424,8 +424,24 @@ static int skin_frame(const uint32_t *palette, uint32_t offset)
                                 SDL_SCALEMODE_LINEAR : SDL_SCALEMODE_NEAREST);
     }
     colours[0] = 0;
-    for (int i = 0; i < 127; i++)
-        colours[i + 1] = reciv_skin_palette[i];
+    {
+        /* WinCiv's water, colours 64 to 71, turns with the map's first
+         * colour cycle (CORE.C setup_cycles: eight colours from 60h); a
+         * fade takes the skin's colours along with the DAC's. */
+        int step = reciv_cycle_step(1);
+        uint8_t to[3];
+        uint32_t a = reciv_fade(to), keep = 0xFFFF - a;
+        for (int i = 0; i < 127; i++) {
+            uint32_t c = reciv_skin_palette[i >= 64 && i < 72 ? 64 + (i - 64 + step) % 8 : i];
+            if (a) {
+                uint32_t r = ((c >> 16 & 255) * keep + (to[0] << 2 | to[0] >> 4) * a) / 0xFFFF;
+                uint32_t g = ((c >> 8 & 255) * keep + (to[1] << 2 | to[1] >> 4) * a) / 0xFFFF;
+                uint32_t b = ((c & 255) * keep + (to[2] << 2 | to[2] >> 4) * a) / 0xFFFF;
+                c = r << 16 | g << 8 | b;
+            }
+            colours[i + 1] = c;
+        }
+    }
     for (int i = 0; i < 128; i++)
         colours[128 + i] = palette[i];
     for (int y = 0; y < SH; y++) {

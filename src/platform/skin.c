@@ -22,6 +22,19 @@
 static uint8_t *sheet;
 int reciv_skin_colours;
 uint32_t reciv_skin_palette[128];
+uint8_t reciv_skin_washed[128];         /* a sentry's colours, by skin byte */
+
+/* MAP.C greys a sentry by turning its black and dark grey (DOS 5 and 8)
+ * light grey. In the skin: every colour but the civilization's becomes a
+ * light one of the sheet's greys (colours 0 to 8: 0, 32, ... 255). */
+static void wash(void)
+{
+    for (int b = 1; b < 128; b++) {
+        uint32_t c = reciv_skin_palette[b - 1];
+        int lum = (int) ((c >> 16 & 255) * 3 + (c >> 8 & 255) * 6 + (c & 255)) / 10;
+        reciv_skin_washed[b] = b - 1 == 12 || b - 1 == 13 ? (uint8_t) b : (uint8_t) ((128 + lum / 2 + 16) / 32 + 1);
+    }
+}
 
 static uint32_t be32(const uint8_t *p) { return (uint32_t) p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3]; }
 static uint16_t be16(const uint8_t *p) { return (uint16_t) (p[0] << 8 | p[1]); }
@@ -168,6 +181,7 @@ int reciv_skin_load(const char *path)
         reciv_log("%s: no WinCiv SPR32X32 picture; playing without the skin", path);
         return 0;
     }
+    wash();
     reciv_skin_enable();
     return 1;
 }

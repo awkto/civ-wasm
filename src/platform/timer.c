@@ -221,6 +221,12 @@ extern char msgtext[];
 
 static uint16_t fd_start, fd_count, fd_pending, fd_fraction, fd_fraction_step;
 
+/* civ-wasm: how far the screen is faded toward fade_colour (0..FFFFh),
+ * for the WinCiv skin, whose colours are not in the DAC. A fade goes from
+ * fade_from to fade_to; fd_mixed is the fraction of the step in FD_MIXED. */
+static uint16_t fade_amount, fade_from, fade_to, fd_mixed;
+static uint8_t fade_colour[3];
+
 /* The DAC bytes the fade could write per tick, measured once by timing
  * writes within one vertical retrace (fade_calibrate). A VGA writes the
  * whole palette in one retrace, so count = 256 colours per tick. */
@@ -229,6 +235,7 @@ static uint16_t fd_start, fd_count, fd_pending, fd_fraction, fd_fraction_step;
 static void fade_mix(void)
 {
     uint16_t si, cx;
+    fd_mixed = fd_fraction;
     fd_start = (uint16_t) ((fd_start + fd_count) & 0xFF);
     si = (uint16_t) (fd_start * 3);
     cx = (uint16_t) (fd_count * 3);
@@ -286,6 +293,7 @@ static void fade_tick(void)
     if (!fd_pending)
         return;
     reciv_dac_write(fd_start & 0xFF, fd_count, FD(FD_MIXED));
+    fade_amount = (uint16_t) (fade_from + ((int32_t) fade_to - fade_from) * fd_mixed / 0xFFFF);
     fd_pending--;
     fade_mix();
 }
@@ -295,6 +303,8 @@ static void fade_tick(void)
 void install_palette(int16_t time, const uint8_t *record)
 {
     memmove(FD(FD_TARGET), record + 6, 0x300);
+    fade_from = fade_amount;
+    fade_to = 0;
     fade_capture();
     fade_prepare((uint16_t) time);
     fade_wait();
@@ -308,9 +318,27 @@ void set_palette(int16_t time, int16_t red, int16_t green, int16_t blue)
         FD(FD_TARGET)[i * 3 + 1] = (uint8_t) green;
         FD(FD_TARGET)[i * 3 + 2] = (uint8_t) blue;
     }
+    fade_colour[0] = (uint8_t) red;
+    fade_colour[1] = (uint8_t) green;
+    fade_colour[2] = (uint8_t) blue;
+    fade_from = fade_amount;
+    fade_to = 0xFFFF;
     fade_capture();
     fade_prepare((uint16_t) time);
     fade_wait();
+}
+
+/* civ-wasm: the fade so far, and the colour it goes to (DAC 0..63). */
+uint16_t reciv_fade(uint8_t rgb[3])
+{
+    memcpy(rgb, fade_colour, 3);
+    return fade_amount;
+}
+
+/* A palette set outright ends any fade. */
+void reciv_fade_clear(void)
+{
+    fade_amount = 0;
 }
 
 /* ------------------------------------------------------ colour cycling */
@@ -366,6 +394,17 @@ void stop_cycle(int16_t n)
     if ((uint16_t) (n - 1) >= 8)
         return;
     cycles[n - 1].countdown = 0;
+}
+
+/* civ-wasm: cycle n's rotation, in colours: DAC first + j shows the
+ * cycle's colour (j + step) % count. */
+int reciv_cycle_step(int16_t n)
+{
+    const struct cycle *c;
+    if ((uint16_t) (n - 1) >= 8 || !cycles[n - 1].bytes)
+        return 0;
+    c = &cycles[n - 1];
+    return c->position / 3;
 }
 
 static void palette_tick(void)

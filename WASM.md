@@ -57,7 +57,11 @@ civilization's colours recolours its skin too. Any other write to a page
 pixel (fills, lines, text, other sprites) clears the skin there, so
 everything else on the screen, and anything the sheet lacks, shows the DOS
 pixels. `video.c` composites the screen at twice its size when the skin is
-on. `--xray` (the game's debug view of the whole map) helps testing it.
+on. The sheet's water colours (64 to 71) turn with the map's first colour
+cycle, its colours follow the palette fades (`timer.c` keeps how far a fade
+has gone), and a sentry's skin is washed out to light greys as DOS turns
+its dark colours grey. `--xray` (the game's debug view of the whole map)
+helps testing it.
 
 ## Building
 
