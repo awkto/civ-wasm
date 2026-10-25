@@ -70,7 +70,9 @@ static void usage(void)
           "  --text-filter NAME: sharp (default), nearest, bilinear, or same\n"
           "  --no-filter selects nearest pixels\n"
           "  --skin FILE: WinCiv map art from civdata4.rsc\n"
-          "  --enemy-moves MODE: show (default), fast, or skip\n", stderr);
+          "  --enemy-moves MODE: show (default), fast, or skip\n"
+          "  --skin-hidden: load the --skin but show the DOS map art\n"
+          "  --no-city-blink: cities needing a new build don't blink on the map\n", stderr);
     exit(1);
 }
 
@@ -135,6 +137,15 @@ int main(int argc, char **argv)
             extern int16_t civwasm_enemy_moves;
             i++;
             civwasm_enemy_moves = (int16_t) (!strcmp(argv[i], "fast") ? 1 : !strcmp(argv[i], "skip") ? 2 : 0);
+        } else if (!strcmp(argv[i], "--skin-hidden")) {
+            /* civ-wasm: load the skin but show the DOS art (the page can
+             * show it while playing). */
+            extern void reciv_video_show_skin(int shown);
+            reciv_video_show_skin(0);
+        } else if (!strcmp(argv[i], "--no-city-blink")) {
+            /* civ-wasm: cities needing a new build don't blink (UNITS.C). */
+            extern int16_t civwasm_city_blink;
+            civwasm_city_blink = 0;
         } else if (!strcmp(argv[i], "--xray")) {
             /* civ-wasm: the game's debug view, the whole map (for tests). */
             extern int16_t xray_on;

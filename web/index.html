@@ -63,6 +63,15 @@
   body.playing #toolbar { display: flex; }
   #toolbar button { padding: 5px 10px; font-size: 13px; background: rgba(20,24,32,.85); }
   .drop { outline: 2px dashed var(--accent); outline-offset: 4px; }
+  .playing-only { display: none; gap: 4px; }
+  body.playing .playing-only { display: inline-flex; }
+  .playing-only button { padding: 3px 12px; }
+  #settings { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.6); display: flex;
+    align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
+  #settings[hidden] { display: none; }
+  #settings .card { max-height: 100%; overflow: auto; padding: 18px 22px; }
+  #settings .top { display: flex; justify-content: space-between; align-items: center; }
+  #settings h1 { font-size: 20px; margin: 0; }
 </style>
 </head>
 <body>
@@ -95,6 +104,7 @@
         <div id="slot-list"></div>
       </details>
     </div>
+    <div id="options">
     <label class="field">View
       <select id="view">
         <option value="2">Fit window, zoom 2× (more map)</option>
@@ -104,6 +114,7 @@
         <option value="1.5">Fit window, zoom 1.5× (most map)</option>
         <option value="classic">Classic 320×200</option>
       </select>
+      <span class="playing-only"><button id="zoom-out" title="Zoom out (more map)">−</button><button id="zoom-in" title="Zoom in">+</button></span>
     </label>
     <label class="field">Display
       <select id="filter">
@@ -135,7 +146,9 @@
         <option value="skip">Skip them (no map jumps)</option>
       </select>
     </label>
+    <label class="check"><input type="checkbox" id="city-blink" checked> Blink cities on the map that need a new build</label>
     <label class="check"><input type="checkbox" id="autosave" checked> Autosave as you play (every game keeps its own save and the last 20 turns)</label>
+    </div>
     <label class="check"><input type="checkbox" id="skip-quiz" checked> Skip the copy-protection quiz</label>
     <div id="status">Starting…</div>
     <details>
@@ -148,10 +161,18 @@
   </div>
 </div>
 <div id="toolbar">
-  <button id="enemy" title="Enemy moves: shown, fast or skipped (click to change)"></button>
-  <button id="zoom-out" title="Zoom out (more map)">−</button>
-  <button id="zoom-in" title="Zoom in">+</button>
+  <button id="settings-open" title="Settings: zoom, display, map art, speed, enemy moves; back to the start page">Settings</button>
   <button id="fullscreen" title="Fullscreen (F11)">Fullscreen</button>
+</div>
+<!-- While playing, the start page's options move in here and apply at once. -->
+<div id="settings" hidden>
+  <div class="card">
+    <div class="top"><h1>Settings</h1><button id="settings-close">Close</button></div>
+    <div id="settings-fields"></div>
+    <p class="hint" id="settings-skin" hidden>No Windows map art loaded: add civdata4.rsc on the start page.</p>
+    <div class="row"><button id="to-start">Save and go to the start page</button></div>
+    <p class="hint">The start page starts a new game or continues another of your games.</p>
+  </div>
 </div>
 <canvas id="canvas" tabindex="-1"></canvas>
 
@@ -497,6 +518,10 @@ for (const [id, key] of [['filter', 'civ-filter'], ['view', 'civ-view'], ['anim-
   $(id).addEventListener('change', () => { try { localStorage.setItem(key, $(id).value); } catch {} });
 }
 try { if (localStorage.getItem('civ-autosave') === 'off') $('autosave').checked = false; } catch {}
+try { if (localStorage.getItem('civ-city-blink') === 'off') $('city-blink').checked = false; } catch {}
+$('city-blink').addEventListener('change', () => {
+  try { localStorage.setItem('civ-city-blink', $('city-blink').checked ? 'on' : 'off'); } catch {}
+});
 $('autosave').addEventListener('change', () => {
   try { localStorage.setItem('civ-autosave', $('autosave').checked ? 'on' : 'off'); } catch {}
 });
@@ -544,19 +569,6 @@ function zoomTitles() {
 }
 $('zoom-in').addEventListener('click', () => zoom(1));
 
-// Enemy moves while playing: shown, fast, skipped, in turn; the game takes
-// the change at once.
-const ENEMY = ['show', 'fast', 'skip'];
-const ENEMY_LABEL = { show: 'Enemies: shown', fast: 'Enemies: fast', skip: 'Enemies: skipped' };
-function enemyLabel() { $('enemy').textContent = ENEMY_LABEL[$('enemy-moves').value]; }
-$('enemy').addEventListener('click', () => {
-  const mode = ENEMY[(ENEMY.indexOf($('enemy-moves').value) + 1) % ENEMY.length];
-  $('enemy-moves').value = mode;
-  $('enemy-moves').dispatchEvent(new Event('change'));
-  Module._civwasm_set_enemy_moves(ENEMY.indexOf(mode));
-  enemyLabel();
-  $('canvas').focus();
-});
 $('zoom-out').addEventListener('click', () => zoom(-1));
 
 // The right button is the game's; keep the browser's menu away from it.
@@ -573,6 +585,7 @@ function start({ game, slot }) {
   activeGame = game || newGame();
   lastFiled = game ? FS.stat(AUTOSAVE + '.SVE').mtime.getTime() : 0;
   document.body.classList.add('playing');
+  $('settings-fields').append($('options'));
   const canvas = $('canvas');
   canvas.focus();
   canvas.addEventListener('pointerdown', () => canvas.focus());
@@ -593,16 +606,56 @@ function start({ game, slot }) {
   if ($('autosave').checked) args.push('--autosave', '3');
   args.push('--anim-speed', $('anim-speed').value);
   args.push('--enemy-moves', $('enemy-moves').value);
-  if ($('skin').value === 'winciv' && haveSkin()) args.push('--skin', SKIN);
+  // The Windows art is loaded whenever it is there, so Settings can switch to it.
+  if (haveSkin()) args.push('--skin', SKIN, ...($('skin').value === 'winciv' ? [] : ['--skin-hidden']));
+  if (!$('city-blink').checked) args.push('--no-city-blink');
   if (game) args.push('--continue');
   else if (slot !== undefined) args.push('--continue', slot);
   Module.callMain(args);
   zoomTitles();
-  enemyLabel();
   // SDL sizes the canvas from its default window until the page resizes;
   // tell it about the real size now that the window exists.
   dispatchEvent(new Event('resize'));
 }
+
+// The settings overlay: the start page's options, taken by the game at once.
+const playing = () => document.body.classList.contains('playing');
+function settings(open) {
+  $('settings').hidden = !open;
+  $('settings-skin').hidden = haveSkin();
+  if (!open) $('canvas').focus();
+}
+$('settings-open').addEventListener('click', () => settings(true));
+$('settings-close').addEventListener('click', () => settings(false));
+$('settings').addEventListener('pointerdown', e => { if (e.target === $('settings')) settings(false); });
+// Keys typed here are the page's, not the game's.
+for (const t of ['keydown', 'keyup', 'keypress'])
+  $('settings').addEventListener(t, e => { e.stopPropagation(); if (t === 'keydown' && e.key === 'Escape') settings(false); });
+const live = (id, apply) => $(id).addEventListener('change', () => { if (playing()) apply(); });
+live('view', () => { if (screenSize()) Module._civwasm_request_screen(...screenSize()); zoomTitles(); });
+live('filter', () => Module._civwasm_set_filter(['nearest', 'sharp', 'bilinear', 'hq4x'].indexOf($('filter').value)));
+live('skin', () => Module._civwasm_show_skin($('skin').value === 'winciv' ? 1 : 0));
+live('anim-speed', () => Module._civwasm_set_anim_speed(Math.round(parseFloat($('anim-speed').value) * 10)));
+live('enemy-moves', () => Module._civwasm_set_enemy_moves(['show', 'fast', 'skip'].indexOf($('enemy-moves').value)));
+live('autosave', () => Module._civwasm_set_autosave($('autosave').checked ? 3 : 0));
+live('city-blink', () => Module._civwasm_set_city_blink($('city-blink').checked ? 1 : 0));
+
+// Back to the start page: the game saves at its next wait for an order;
+// file that save under this game, then reload.
+$('to-start').addEventListener('click', async () => {
+  $('to-start').disabled = true;
+  $('to-start').textContent = 'Saving…';
+  const before = exists(AUTOSAVE + '.SVE') ? FS.stat(AUTOSAVE + '.SVE').mtime.getTime() : 0;
+  Module._civwasm_save_now();
+  for (let i = 0; i < 30; i++) {
+    await new Promise(r => setTimeout(r, 100));
+    if (exists(AUTOSAVE + '.SVE') && FS.stat(AUTOSAVE + '.SVE').mtime.getTime() !== before) break;
+  }
+  await new Promise(r => setTimeout(r, 200));
+  fileAutosave();
+  await syncfs(false).catch(() => {});
+  location.reload();
+});
 
 $('fullscreen').addEventListener('click', () => {
   if (document.fullscreenElement) document.exitFullscreen();

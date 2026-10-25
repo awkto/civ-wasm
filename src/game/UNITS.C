@@ -264,7 +264,7 @@ static void blink_cities(int owner, int step)
     int i, sx, sy, n, on;
     if (still == 1 || bare_flag != 0)
         return;
-    on = step && (beat++ & 2) == 0;
+    on = step && civwasm_city_blink && (beat++ & 2) == 0;
     if (!on && !ringed)
         return;
     ringed = on;

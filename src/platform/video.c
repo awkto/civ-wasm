@@ -54,6 +54,24 @@ int reciv_wide_view;
 static int shown_w(void) { return reciv_wide_view ? SW : 320; }
 static int shown_h(void) { return reciv_wide_view ? SH : 200; }
 
+/* civ-wasm: the page's settings while playing. A new filter takes effect
+ * at the next present, which rebuilds the textures for it; the skin, when
+ * loaded, can be hidden (the DOS pixels are always kept under it). */
+static int pending_filter = -1;
+int reciv_skin_hidden;
+
+void reciv_video_set_filter(int index)
+{
+    if (index >= RECIV_FILTER_NEAREST && index <= RECIV_FILTER_HQ4X)
+        pending_filter = index;
+}
+
+void reciv_video_show_skin(int shown)
+{
+    reciv_skin_hidden = !shown;
+    dirty = 1;
+}
+
 /* Presentation only: the VGA pixels stay original. */
 int reciv_video_filter(const char *name)
 {
@@ -410,7 +428,7 @@ static int skin_frame(const uint32_t *palette, uint32_t offset)
     const uint8_t *background = split_text ? reciv_page_background(0) : src;
     uint32_t colours[256];
     int w2 = 2 * SW;
-    if (!skin || !reciv_skin_colours)
+    if (!skin || !reciv_skin_colours || reciv_skin_hidden)
         return 0;
     if (!skin_pixels) {
         skin_pixels = SDL_malloc((size_t) w2 * 2 * SH * sizeof(uint32_t));
@@ -562,6 +580,13 @@ void reciv_video_present(int force)
     uint64_t now = SDL_GetTicksNS();
     uint32_t palette[256];
 
+    if (pending_filter >= 0) {
+        filter = (enum reciv_filter) pending_filter;
+        pending_filter = -1;
+        filter_failed = 0;
+        reciv_video_resize();
+        dirty = 1;
+    }
     if (!force && (!dirty || now - last_present < 14000000))
         return;
     last_present = now;

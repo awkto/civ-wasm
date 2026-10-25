@@ -60,6 +60,48 @@ CIVWASM_EXPORT void civwasm_set_enemy_moves(int mode)
     civwasm_enemy_moves = (int16_t) (mode < 0 || mode > 2 ? 0 : mode);
 }
 
+/* --------------------------------------------------------- settings */
+
+void reciv_video_set_filter(int index);
+void reciv_video_show_skin(int shown);
+extern int civwasm_autosave_seconds;
+
+/* The page's settings overlay, while playing. Each only sets a value the
+ * game or the presenter reads as it goes. */
+CIVWASM_EXPORT void civwasm_set_filter(int index)      /* nearest, sharp, bilinear, hq4x */
+{
+    reciv_video_set_filter(index);
+}
+
+CIVWASM_EXPORT void civwasm_show_skin(int shown)       /* the WinCiv skin, if loaded */
+{
+    reciv_video_show_skin(shown);
+}
+
+CIVWASM_EXPORT void civwasm_set_anim_speed(int tenths)
+{
+    reciv_anim_speed = tenths < 10 ? 10 : tenths > 100 ? 100 : tenths;
+}
+
+CIVWASM_EXPORT void civwasm_set_city_blink(int on)
+{
+    extern int16_t civwasm_city_blink;
+    civwasm_city_blink = (int16_t) !!on;
+}
+
+CIVWASM_EXPORT void civwasm_set_autosave(int seconds)
+{
+    civwasm_autosave_seconds = seconds < 0 ? 0 : seconds;
+}
+
+/* Write the autosave at the next wait for an order, whatever the
+ * autosave setting: the page is about to leave the game. */
+static int save_now;
+CIVWASM_EXPORT void civwasm_save_now(void)
+{
+    save_now = 1;
+}
+
 static int resize_pending(void)
 {
     int w = pending_w < 320 ? 320 : pending_w, h = pending_h < 200 ? 200 : pending_h;
@@ -90,7 +132,7 @@ int16_t civwasm_real_ticks(int16_t ticks)
 
 /* ----------------------------------------------------------- autosave */
 
-int civwasm_autosave_seconds;           /* 0: off (--autosave SECONDS) */
+int civwasm_autosave_seconds;           /* 0: off (--autosave SECONDS, or the page's settings) */
 static int changed;
 static uint64_t last_save;
 
@@ -106,6 +148,12 @@ int16_t civwasm_idle(int16_t entering)
         changed = 1;
     if (resize_pending())
         result |= 1;
+    if (save_now) {
+        save_now = 0;
+        last_save = now;
+        result |= 2;
+        return result;
+    }
     if (civwasm_autosave_seconds && changed &&
         now - last_save >= (uint64_t) civwasm_autosave_seconds * 1000000000ull) {
         changed = 0;
