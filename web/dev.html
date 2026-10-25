@@ -14,7 +14,7 @@ var Module = {
   },
 };
 function start() {
-    const q = new URLSearchParams(location.search), args = ['-d', '/civ', '-s', '/saves', '--skip-quiz'];
+    const q = new URLSearchParams(location.search), args = ['-d', '/civ', '-s', '/saves', '--skip-quiz', '--quick-setup'];
     if (q.get('screen')) args.push('--screen', q.get('screen'));
     if (q.get('filter')) args.push('--filter', q.get('filter'));
     if (q.get('autosave')) args.push('--autosave', q.get('autosave'));

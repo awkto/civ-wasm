@@ -9,6 +9,7 @@ extern int screen_w, screen_h;          /* 320, 200 */
 extern void wide_view(int on);          /* show the whole screen (the map) or the classic 320x200 */
 /* Browser services (platform civwasm.c) and the autosave (SAVE.C). */
 extern int civwasm_continue;            /* --continue: load the autosave at once */
+extern int civwasm_quick_setup;         /* --quick-setup: AdLib and mouse, no questions */
 extern int civwasm_idle(int entering);  /* bit 0: resize pending; bit 1: autosave now */
 extern void civwasm_resize(void);
 extern void autosave(void);

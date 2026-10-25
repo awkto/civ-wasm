@@ -120,6 +120,15 @@ void game_startup(void)
     if (!vga_modes)
         rect_fill(spare_page, 0, 0, 320, 200, 0);
     load_ega_palette(ega_palette);
+    /* civ-wasm: resuming (--continue) shows no logo or introduction and
+     * goes straight to Load a Saved Game (SAVE.C loads the autosave). */
+    if (civwasm_continue) {
+        debug |= 0x10;
+        timer_reset();
+        scrbuf->font = 1;
+        main_option_result = 1;
+        return;
+    }
     sprite_arena_init();
     load_picture(1, "logo.pic");
     tile = cut_tile(1, 0, 64, 320, 80);

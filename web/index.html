@@ -297,7 +297,7 @@ function start(resume) {
   setInterval(save, 3000);
   addEventListener('pagehide', save);
   document.addEventListener('visibilitychange', () => document.hidden && save());
-  const args = ['-d', '/civ', '-s', '/saves', '--filter', $('filter').value, '--text-filter', 'same', ...screenArg()];
+  const args = ['-d', '/civ', '-s', '/saves', '--quick-setup', '--filter', $('filter').value, '--text-filter', 'same', ...screenArg()];
   if ($('skip-quiz').checked) args.push('--skip-quiz');
   if ($('autosave').checked) args.push('--autosave', '3');
   if (resume) args.push('--continue');

@@ -1,3 +1,4 @@
+#include "WIDE.H"                /* civ-wasm */
 #include <dos.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -67,6 +68,14 @@ void setup_main(void)
     /* INTRO.TXT retains the original graphics prompt; consume but do not show it. */
     fscanf(intro_file_p, "%[^\n]\n", input);
     graphics_driver = 'M';
+
+    /* civ-wasm: --quick-setup answers AdLib and Mouse and Keyboard. */
+    if (civwasm_quick_setup) {
+        sound_driver = sound_codes[1];
+        has_mouse = 1;
+        fclose(intro_file_p);
+        return;
+    }
 
     if (ask_sound_b == 1) {
         set_cursor(12, 0);

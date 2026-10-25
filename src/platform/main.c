@@ -108,10 +108,14 @@ int main(int argc, char **argv)
             /* civ-wasm: save slot 9 at most this often, while waiting for orders. */
             civwasm_autosave_seconds = atoi(argv[++i]);
         } else if (!strcmp(argv[i], "--continue")) {
-            /* civ-wasm: answer the setup questions (AdLib, mouse), skip the
-             * introduction to Load, and load slot 9 without asking. */
+            /* civ-wasm: skip the introduction to Load, and load slot 9
+             * without asking. */
             extern int16_t civwasm_continue;
             civwasm_continue = 1;
+        } else if (!strcmp(argv[i], "--quick-setup")) {
+            /* civ-wasm: AdLib and mouse, without the setup questions. */
+            extern int16_t civwasm_quick_setup;
+            civwasm_quick_setup = 1;
         } else if (!strcmp(argv[i], "--skip-quiz"))
             reciv_skip_quiz = 1;
         else if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help"))
@@ -135,14 +139,13 @@ int main(int argc, char **argv)
     reciv_video_set_mode(3);             /* DOS starts in 80x25 text */
     reciv_timer_init();
     {
-        /* civ-wasm: --continue types what a player would: 2 (AdLib) and 1
-         * (mouse) at the setup questions, then L, which skips the
-         * introduction and picks Load a Saved Game. */
-        extern int16_t civwasm_continue;
-        if (civwasm_continue) {
+        /* civ-wasm: --continue without --quick-setup types what a player
+         * would at the setup questions: 2 (AdLib) and 1 (mouse). INTRO.C
+         * then skips the introduction. */
+        extern int16_t civwasm_continue, civwasm_quick_setup;
+        if (civwasm_continue && !civwasm_quick_setup) {
             reciv_key_event(0x0332);
             reciv_key_event(0x0231);
-            reciv_key_event(0x266C);
         }
     }
 
