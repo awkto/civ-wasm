@@ -66,7 +66,7 @@ had chosen it), Better Default Unit (`civwasm_set_better_default`,
 Working and Mech. Inf. with Labor Union, besides the game's own Musketeers
 and Riflemen) and Autosave (`civwasm_set_autosave`). While playing, the
 page takes Alt with `-`/`_` and `=`/`+` (or the numpad's - and +) as zoom
-out and in, and Alt with `` ` ``/`~`/`*` as a switch of map art, by key
+out and in, and Alt with `` ` ``/`~`/`*`/Backspace as a switch of map art, by key
 position (`KeyboardEvent.code`) and before the game sees them. "Save and go to the start page" asks for an
 autosave at the next wait for an order (`civwasm_save_now`), files it under
 the game and reloads.

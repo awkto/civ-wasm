@@ -691,7 +691,7 @@ live('better-default', () => Module._civwasm_set_better_default($('better-defaul
 // zooms out, with = or + zooms in, and with ` ~ or * switches the map art.
 // By key position, so Shift and keyboard layouts don't matter.
 const SHORTCUTS = { Minus: () => zoom(-1), NumpadSubtract: () => zoom(-1), Equal: () => zoom(1), NumpadAdd: () => zoom(1),
-  Backquote: switchArt, NumpadMultiply: switchArt, Digit8: switchArt };
+  Backquote: switchArt, NumpadMultiply: switchArt, Digit8: switchArt, Backspace: switchArt };
 function switchArt() {
   if (!haveSkin()) return;
   $('skin').value = $('skin').value === 'winciv' ? 'dos' : 'winciv';
