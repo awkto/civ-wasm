@@ -9,8 +9,13 @@ building; reciv's own README describes the native builds. Changes to upstream co
 The page (`web/index.html`) asks for the original game files: a folder, a
 .zip, or loose files, chosen or dropped onto the page, or the URL of a .zip
 (the server must allow cross-origin requests). A link with `?url=<zip>`
-downloads that zip straight away, and a site that bundles the game names
-its zip in `<meta name="civ-data">`. They are kept in the
+downloads that zip straight away (`?skin=` the same for the Windows map
+art). A site that hosts the game puts a `site.json` beside the page,
+`{"data": "civ1.zip", "skin": "civdata4.rsc"}` (URLs, relative to the page
+or not; the older `<meta name="civ-data">` and `civ-skin` work too): every
+visitor then plays from those files, the file choosers fold away under "Use
+your own game files instead", and a URL remembered from elsewhere is not
+used. The files are kept in the
 browser's IndexedDB, so later visits start straight away. Saved games are kept
 there too (synced every few seconds). The canvas fills the window and the game
 keeps a 4:3 picture inside it; mouse and keyboard work as in the original.

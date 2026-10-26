@@ -57,6 +57,9 @@
   #status.error { color: var(--error); }
   details { margin-top: 18px; color: var(--muted); font-size: 13px; }
   summary { cursor: pointer; }
+  #own-files { margin-top: 0; color: inherit; font-size: inherit; }
+  #own-files > summary { color: var(--muted); font-size: 13px; }
+  #own-files:not(.hosted) > summary { display: none; }
   #toolbar { position: fixed; top: 8px; right: 8px; z-index: 10; display: none; gap: 6px; opacity: .25;
     transition: opacity .2s; }
   #toolbar:hover, #toolbar:focus-within { opacity: 1; }
@@ -81,6 +84,9 @@
   <div class="card" id="card">
     <h1>Sid Meier's Civilization</h1>
     <p class="sub">The 1991 DOS game, rebuilt from source and running in your browser.</p>
+    <p id="hosted" hidden>This site provides the game files: just press Play.</p>
+    <details id="own-files" open>
+    <summary>Use your own game files instead</summary>
     <p>You need your own copy of the original game files. Choose the game's folder,
        a .zip of it, or drop either here. The files stay in this browser and are never uploaded.
        For the Windows version's map art, add <code>civdata4.rsc</code> from Civilization for Windows
@@ -93,6 +99,7 @@
       <input type="url" id="data-url" placeholder="…or the URL of a .zip" autocomplete="off" spellcheck="false">
       <button id="load-url">Load</button>
     </div>
+    </details>
     <div class="row">
       <button class="primary" id="continue" hidden>Continue</button>
       <button class="primary" id="play" disabled>Play</button>
@@ -368,12 +375,12 @@ function refresh() {
   const games = renderSaves();
   $('continue').hidden = !(ok && games.length);
   $('play').disabled = !ok;
-  $('forget').hidden = !ok;
+  $('forget').hidden = !ok || !!bundled;
   const skin = haveSkin();
   $('skin-hint').hidden = !skin && $('skin').value === 'dos';
   $('skin-text').textContent = skin ? 'Windows map art is loaded.' :
     'No Windows map art yet: add civdata4.rsc or the Windows game\'s .zip above. Until then the map uses the DOS art.';
-  $('forget-skin').hidden = !skin;
+  $('forget-skin').hidden = !skin || !!bundledSkin;
   status(ok ? 'Game files found in this browser. Ready to play.' : 'Choose your Civilization files to begin.');
 }
 
@@ -387,6 +394,7 @@ var Module = {
       FS.mount(IDBFS, {}, dir);
     }
     try { await syncfs(true); } catch (e) { console.warn('IndexedDB unavailable', e); }
+    await siteConfig;
     ready();
     importOldAutosave();
     refresh();
@@ -447,15 +455,29 @@ async function install(fileList) {
 
 // The zip's URL: from a shared link, this browser's remembered one, or the
 // site's bundled one. The link parameter's name is matched without case.
-const bundled = document.querySelector('meta[name="civ-data"]').content;
+let bundled = document.querySelector('meta[name="civ-data"]').content;
 const shared = [...new URLSearchParams(location.search)]
   .find(([k]) => /^(url|data)$/i.test(k))?.[1] || '';
 // ?skin=<zip or civdata4.rsc>: the Windows map art, the same way.
-const bundledSkin = document.querySelector('meta[name="civ-skin"]').content;
+let bundledSkin = document.querySelector('meta[name="civ-skin"]').content;
 const sharedSkin = [...new URLSearchParams(location.search)]
   .find(([k]) => /^skin$/i.test(k))?.[1] || '';
+// A site that hosts the game says so in site.json beside this page (not in
+// the source; each instance writes its own): {"data": "<zip URL>", "skin":
+// "<civdata4.rsc or Windows zip URL>"}, either relative to the page. Every
+// visitor then plays from those files, with nothing to choose.
+const siteConfig = fetch('site.json', { cache: 'no-cache' })
+  .then(r => r.ok ? r.json() : {}).catch(() => ({}))
+  .then(c => {
+    if (typeof c.data === 'string' && c.data) bundled = c.data;
+    if (typeof c.skin === 'string' && c.skin) bundledSkin = c.skin;
+    $('hosted').hidden = !bundled;
+    $('own-files').open = !bundled;
+    $('own-files').classList.toggle('hosted', !!bundled);
+  });
 function dataUrl() {
-  try { return localStorage.getItem('civ-data-url') || bundled; } catch { return bundled; }
+  if (bundled) return bundled;
+  try { return localStorage.getItem('civ-data-url') || ''; } catch { return ''; }
 }
 try { $('data-url').value = localStorage.getItem('civ-data-url') || ''; } catch {}
 
