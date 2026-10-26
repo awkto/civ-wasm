@@ -124,6 +124,7 @@ int civwasm_quick_setup = 0;            /* civ-wasm: --quick-setup (SETUP.C) */
 int civwasm_browser_saves = 0;          /* civ-wasm: --browser-saves (TURN.C) */
 int civwasm_enemy_moves = 0;            /* civ-wasm: --enemy-moves (WIDE.H) */
 int civwasm_city_blink = 1;             /* civ-wasm: --no-city-blink (WIDE.H) */
+int civwasm_refuse_emissaries;          /* civ-wasm: --refuse-emissaries (WIDE.H) */
 int statuspics[320];            /* sprites cut from the sprite sheet; GLOBALS.H names the parts */
 int saved_found;                /* mask of saved game slots present */
 union REGS bios_call_reg_block_io;      /* registers for BIOS calls */

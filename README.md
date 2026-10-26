@@ -45,9 +45,11 @@ The server holding the zip must allow cross-origin requests.
   jumps to each move another civilization makes. The setting is on the start
   page and in Settings during a game.
 - **Settings while playing.** The Settings button changes zoom, display,
-  map art, animation speed, enemy moves, the city blink and autosave in
-  the middle of a game, and saves and goes back to the start page to begin
-  or continue another game.
+  map art, animation speed, enemy moves, the city blink, refusing other
+  civilizations' emissaries and autosave in the middle of a game, and saves
+  and goes back to the start page to begin or continue another game.
+  Shortcuts: Alt with - or _ zooms out, Alt with = or + zooms in, Alt with
+  ` ~ or * switches between the Windows and DOS map art.
 - **Display filters.** Crisp pixels, raw pixels, hq4x smoothing or bilinear, always
   at the original 4:3 shape. Fullscreen is in the toolbar (or F11).
 
