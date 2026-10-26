@@ -25,6 +25,7 @@ extern int civwasm_browser_saves;       /* --browser-saves: the page keeps the s
 extern void civwasm_skin_picture(int, char *);   /* skin.c: a picture loaded */
 extern void civwasm_skin_sprite(struct page *, int, int, int);  /* mgraphic.c: a sprite's skin alone */
 extern void civwasm_skin_fill(struct page *, int, int, int, int, int);  /* mgraphic.c: skin colour alone */
+extern void civwasm_skin_recolour(struct page *, int, int, int, int, int, int);  /* and recoloured alone */
 #define SKIN_PANEL 80                   /* WinCiv city screen: cream (RECIV_SKIN_PANEL) */
 #define SKIN_FRAME 81                   /* and dark red (RECIV_SKIN_FRAME) */
 #define SKIN_GREY 6                     /* the sheet's greys, 0 to 8 */

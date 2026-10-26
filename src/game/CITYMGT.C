@@ -1414,10 +1414,13 @@ label_input:
                 poll_mouse();
                 if (flash_c != 0) {
                     mouse_off();
-                    if (++flash_c & 1)
+                    if (++flash_c & 1) {
                         recolour_rect(scrbuf, 231, 106, 32, 8, 14, 9);
-                    else
+                        civwasm_skin_recolour(scrbuf, 231, 106, 32, 8, 128 + 14, SKIN_GREY);   /* civ-wasm: WinCiv's grey blinks too */
+                    } else {
                         recolour_rect(scrbuf, 231, 106, 32, 8, 9, 14);
+                        civwasm_skin_recolour(scrbuf, 231, 106, 32, 8, SKIN_GREY, 128 + 14);
+                    }
                     mouse_on();
                     flip(10);
                 }
