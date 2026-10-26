@@ -380,6 +380,7 @@ int create_unit(int owner, int type, int x, int y)
             armydata[owner][index].visibility = bit;
             armydata[owner][index].goto_x = -1;
             armydata[owner][index].f8 = -1;
+            civwasm_road_to[owner][index] = 0;  /* civ-wasm */
             armydata[owner][index].fuel = utypes[armydata[owner][index].type].fuel;
             armydata[owner][index].home_city = near_city(x, y);
             /* reciv: with no city near, home_city is -1 and the original read

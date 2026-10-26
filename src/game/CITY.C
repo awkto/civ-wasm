@@ -140,6 +140,15 @@ int city_create(int player, int unused, int x, int y, int size)
         if (has_tech(player, 64)) {
             townbuf[city].production = 5;
         }
+        if (civwasm_better_default && (human_set & (1 << player))) {
+            /* civ-wasm: Better Default Unit, the best defender known:
+             * Phalanx (Bronze Working) before Musketeers, and Mech. Inf.
+             * (Labor Union) after Riflemen. */
+            if (townbuf[city].production == 1 && has_tech(player, 17))
+                townbuf[city].production = 2;
+            if (has_tech(player, 65))
+                townbuf[city].production = 12;
+        }
         townbuf[city].rest[14] = townbuf[city].rest[15] = -1;
 
         is_first = 1;

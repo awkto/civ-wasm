@@ -441,6 +441,11 @@ void transfer_game(void)
     transfer_near((char *) space_ship_habitation, 0x10);
     transfer_near((char *) liftoff_when, 0x10);
     transfer_near((char *) &civ_flags_bits, 0x2);
+    /* civ-wasm: Road To orders, after the game's own data; a save without
+     * them loads with none. */
+    if (save_mode)
+        memset(civwasm_road_to, 0, sizeof civwasm_road_to);
+    transfer_near((char *) civwasm_road_to, sizeof civwasm_road_to);
 }
 
 /* Non-prototype ABI calls below; NOLINTBEGIN(clang-diagnostic-deprecated-non-prototype) */
