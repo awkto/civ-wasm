@@ -202,9 +202,13 @@ static void skin_sprite_cut(uint16_t seg, uint16_t page, int16_t x, int16_t y, i
         return;
     s->w = (uint16_t) (2 * w);
     s->h = (uint16_t) (2 * h);
+    /* Units (NEWGAME.C: 15 x 15 from (16j + 1, 129 + 16k) of the strip
+     * copied up from SP257's row 160) sit one DOS pixel further left in
+     * WinCiv's cells, at 0 to 29 of 32 rather than 2 to 31. */
+    int dx = w == 15 && h == 15 && x % 16 == 1 && y >= 129 && y < 160 && y % 16 == 1 ? -2 : 0;
     for (int r = 0; r < 2 * h; r++)
         for (int c = 0; c < 2 * w; c++) {
-            uint8_t v = skin[(size_t) (2 * y + r) * SKW + 2 * x + c];
+            uint8_t v = skin[(size_t) (2 * y + r) * SKW + 2 * x + c + dx];
             s->pixels[r * s->w + c] = v;
             skinned += v != 0;
             opaque += page_mem[page & 7][(uint32_t) (y + r / 2) * SW + (uint32_t) (x + c / 2)] != 0;
