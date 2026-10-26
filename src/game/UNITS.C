@@ -380,7 +380,7 @@ int create_unit(int owner, int type, int x, int y)
             armydata[owner][index].visibility = bit;
             armydata[owner][index].goto_x = -1;
             armydata[owner][index].f8 = -1;
-            civwasm_road_to[owner][index] = 0;  /* civ-wasm */
+            civwasm_road_to[owner][index] = civwasm_auto_work[owner][index] = 0;  /* civ-wasm */
             armydata[owner][index].fuel = utypes[armydata[owner][index].type].fuel;
             armydata[owner][index].home_city = near_city(x, y);
             /* reciv: with no city near, home_city is -1 and the original read
@@ -607,6 +607,7 @@ void unit_reset(int group, int index)
             armydata[group][index].fuel = utypes[armydata[group][index].type].fuel - 1;
     }
     armydata[group][index].goto_x = armydata[group][index].f8 = -1;
+    civwasm_auto_work[group][index] = 0;        /* civ-wasm: given orders again */
 }
 
 extern struct unit armydata[][128];
@@ -626,6 +627,7 @@ void kill_cb(int group, int index)
         armydata[group][index].moves = 3 * utypes[armydata[group][index].type].moves;
     armydata[group][index].status &= 0x30;
     armydata[group][index].goto_x = -1;
+    civwasm_auto_work[group][index] = 0;        /* civ-wasm */
     if (group == civnow)
         unit_redraw(group, index);
 }
@@ -989,6 +991,7 @@ activate:
                 armydata[owner][h].moves = 3 * utypes[armydata[owner][h].type].moves;
             armydata[owner][h].status &= 0x30;
             armydata[owner][h].goto_x = -1;
+            civwasm_auto_work[owner][h] = 0;    /* civ-wasm: woken for orders */
             if (i > 1)
                 goto redraw_list;
         }

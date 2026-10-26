@@ -169,6 +169,9 @@ void unit_orders_menu(int p, int u)
         }
         strcat(msgtext, " Road To \217T\n");      /* civ-wasm: a GoTo that builds road */
         keybuf[pos++] = 'T';
+        strcat(msgtext, " Auto Irrigate \217I\n Auto Mine \217M\n");    /* civ-wasm: PATH.C */
+        keybuf[pos++] = 'I';
+        keybuf[pos++] = 'M';
         if (!(tileflags & 2)) {
             if (work_rules[ter].irrigate == -2) {
                 strcat(msgtext, " Build Irrigation");

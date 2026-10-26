@@ -21,6 +21,9 @@ extern int civwasm_city_blink;          /* cities needing a new build blink (UNI
 extern int civwasm_refuse_emissaries;   /* other civilizations' emissaries turned away unasked (AUDIENCE.C; set while playing too) */
 extern char civwasm_road_to[8][128];     /* settlers on Road To (PATH.C, saved by SAVE.C) */
 extern int road_to_goal(int, int);
+extern char civwasm_auto_work[8][128];  /* settlers on Auto Irrigate ('i') or Auto Mine ('m') (PATH.C) */
+extern unsigned char civwasm_auto_x[8][128], civwasm_auto_y[8][128];
+extern int auto_work_goal(int, int);
 extern int civwasm_better_default;      /* new cities build the best defender (CITY.C; set while playing too) */
 extern int civwasm_browser_saves;       /* --browser-saves: the page keeps the saves; no AutoSave */
 /* How much further a centred view's corner sits from its centre than in
