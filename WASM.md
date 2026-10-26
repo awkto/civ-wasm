@@ -192,7 +192,7 @@ from Emscripten's ports.
 
 ## Road To
 
-Shift+T (or Orders, Road To) on settlers chooses a target as GoTo does.
+Shift+R (or Orders, Road To) on settlers chooses a target as GoTo does.
 `civwasm_road_to[civ][unit]` (PATH.C) marks the order; CONTROL.C then asks
 `road_to_goal` instead of `unit_goal`. It answers `r` while the settlers'
 tile has no road (or city), and otherwise unit_goal's step, keeping the

@@ -459,7 +459,7 @@ uc:                            /* unit command */
                         civwasm_road_to[civ][jf] = 0;
                         U.goto_x = U.f8 = -1;
                         break;
-                    case 'T':
+                    case 'R':
                         /* civ-wasm: Road To, a GoTo that builds road on the way (PATH.C) */
                         if (U.type != 0) {
                             human_msg("*SETTLERS");
@@ -486,7 +486,7 @@ go_to:
                                 }
                             }
                         } else
-                            set_mousecur(0, 0, statuspics[ig != 0 ? 7 : 2]);
+                            set_mousecur(0, 0, ig != 0 ? statuspics[7] : road_pending ? civwasm_road_cursor : statuspics[2]);   /* civ-wasm: Road To's own */
                         ig ^= 1;
                         break;
                     case 'h':

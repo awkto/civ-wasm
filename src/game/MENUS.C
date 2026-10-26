@@ -167,8 +167,8 @@ void unit_orders_menu(int p, int u)
                 keybuf[pos++] = 'r';
             }
         }
-        strcat(msgtext, " Road To \217T\n");      /* civ-wasm: a GoTo that builds road */
-        keybuf[pos++] = 'T';
+        strcat(msgtext, " Road To \217R\n");      /* civ-wasm: a GoTo that builds road */
+        keybuf[pos++] = 'R';
         strcat(msgtext, " Auto Irrigate \217I\n Auto Mine \217M\n");    /* civ-wasm: PATH.C */
         keybuf[pos++] = 'I';
         keybuf[pos++] = 'M';

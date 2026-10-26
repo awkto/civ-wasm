@@ -787,6 +787,53 @@ int16_t sprite_encode_row(const uint8_t *row)
     return (int16_t) arena_seg;
 }
 
+/* civ-wasm: a sprite's pixels into a w-wide buffer (0 transparent). */
+static void sprite_pixels(uint16_t sprite, uint8_t *out, uint16_t w, uint16_t h)
+{
+    uint16_t sw = peek16(REAL(sprite, 0)), sh = peek16(REAL(sprite, 2)), at = 4;
+    for (uint16_t r = 0; r < sh; r++) {
+        uint16_t run = peek16(REAL(sprite, at)), lead = peek16(REAL(sprite, at + 2));
+        at = (uint16_t) (at + 4);
+        for (uint16_t c = 0; c < run; c++, at++)
+            if (r < h && lead + c < w && lead + c < sw)
+                out[r * w + lead + c] = *REAL(sprite, at);
+    }
+}
+
+/* civ-wasm: Road To's cursor, cut while the game's sprites are: the GoTo
+ * cursor's arrow, with ROAD where it has GO, in its 4 x 5 white letters
+ * shadowed down and right in colour 5. */
+int16_t civwasm_road_cursor_cut(int16_t goto_sprite)
+{
+    static const char *const letters[4][5] = {
+        { "1111", "1001", "1111", "1010", "1001" },   /* R */
+        { "1111", "1001", "1001", "1001", "1111" },   /* O */
+        { "1111", "1001", "1111", "1001", "1001" },   /* A */
+        { "1110", "1001", "1001", "1001", "1110" },   /* D */
+    };
+    enum { W = 24, H = 16 };
+    uint8_t px[W * H] = { 0 }, arrow[16 * 16] = { 0 };
+    sprite_pixels((uint16_t) goto_sprite, arrow, 16, 16);
+    for (int r = 0; r < 6; r++)
+        memcpy(px + r * W, arrow + r * 16, 16);
+    for (int pass = 0; pass < 2; pass++)       /* shadows, then the letters over them */
+        for (int k = 0; k < 4; k++)
+            for (int r = 0; r < 5; r++)
+                for (int c = 0; c < 4; c++)
+                    if (letters[k][r][c] == '1') {
+                        int x = 3 + 5 * k + c, y = 6 + r;
+                        if (pass)
+                            px[y * W + x] = 15;
+                        else
+                            px[(y + 1) * W + x + 1] = 5;
+                    }
+    if (!sprite_begin(W, H) || !sprite_rows)
+        return goto_sprite;
+    for (int r = 0; r < H; r++)
+        sprite_encode_row(px + r * W);
+    return sprite_end();
+}
+
 /* Slot 2: encode a page rectangle as a sprite; returns its segment. */
 int16_t cut_tile(int16_t page, int16_t x, int16_t y, int16_t w, int16_t h)
 {
