@@ -46,6 +46,10 @@ const uint8_t *reciv_page_text_mask(uint16_t page);
 /* civ-wasm: the WinCiv skin (skin.c, mgraphic.c). */
 int reciv_skin_load(const char *path);
 void reciv_skin_enable(void);
+/* civ-wasm: skin colours the sheet leaves unused (72 to 126), for WinCiv's
+ * city screen (CITYMGT.C, WIDE.H): its cream panels and dark red frame. */
+#define RECIV_SKIN_PANEL 80
+#define RECIV_SKIN_FRAME 81
 void reciv_skin_row(uint16_t page, int x, int y, int w, const uint8_t *row);
 const uint8_t *reciv_page_skin(uint16_t page);
 extern int reciv_skin_colours;

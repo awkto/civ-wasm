@@ -181,6 +181,8 @@ int reciv_skin_load(const char *path)
         reciv_log("%s: no WinCiv SPR32X32 picture; playing without the skin", path);
         return 0;
     }
+    reciv_skin_palette[RECIV_SKIN_PANEL] = 0xFFE78C;
+    reciv_skin_palette[RECIV_SKIN_FRAME] = 0x730000;
     wash();
     reciv_skin_enable();
     return 1;

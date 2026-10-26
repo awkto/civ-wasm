@@ -106,6 +106,14 @@ has gone), and a sentry's skin is washed out to light greys as DOS turns
 its dark colours grey. `--xray` (the game's debug view of the whole map)
 helps testing it.
 
+With the skin, the city screen takes WinCiv's colours: cream panels, a dark
+red frame and headers, grey buttons with the chosen tab white. CITYMGT.C
+paints them into the skin layer only (`civwasm_skin_fill`, skin colours 80
+and 81 that the sheet leaves unused), after the DOS drawing, so hiding the
+skin shows the DOS screen unchanged; `skin_frame` draws light text that sits
+on a cream panel in near-black. Irrigation is drawn again over WinCiv's land
+(`civwasm_skin_sprite`), since the DOS map draws it under the terrain.
+
 ## Building
 
 Install the [Emscripten SDK](https://emscripten.org/docs/getting_started/downloads.html)
