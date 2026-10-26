@@ -72,6 +72,7 @@ static void usage(void)
           "  --skin FILE: WinCiv map art from civdata4.rsc\n"
           "  --enemy-moves MODE: show (default), fast, or skip\n"
           "  --touch: no mouse pointer; a tap next to the active unit moves it\n"
+          "  --own-moves MODE: your GoTo and automatic moves: show (default), fast, or skip\n"
           "  --skin-hidden: load the --skin but show the DOS map art\n"
           "  --no-city-blink: cities needing a new build don't blink on the map\n"
           "  --refuse-emissaries: say No to other civilizations' emissaries without asking\n"
@@ -144,6 +145,11 @@ int main(int argc, char **argv)
             /* civ-wasm: the page's touch controls (civwasm_set_touch). */
             extern void civwasm_set_touch(int on);
             civwasm_set_touch(1);
+        } else if (!strcmp(argv[i], "--own-moves") && i + 1 < argc) {
+            /* civ-wasm: the player's GoTo, Road To and Auto moves shown, fast or skipped. */
+            extern int16_t civwasm_own_moves;
+            i++;
+            civwasm_own_moves = (int16_t) (!strcmp(argv[i], "fast") ? 1 : !strcmp(argv[i], "skip") ? 2 : 0);
         } else if (!strcmp(argv[i], "--skin-hidden")) {
             /* civ-wasm: load the skin but show the DOS art (the page can
              * show it while playing). */

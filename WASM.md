@@ -218,3 +218,15 @@ order on the tile, a GoTo step towards it, or -1 with the order cleared
 when nothing is left. Since the choice is made again each time, every new
 irrigated tile lets irrigation reach further. Waking the settlers
 (`unit_reset`, the stack list, `kill_cb`) clears the order.
+
+## Your automatic moves
+
+`civwasm_own_moves` (`--own-moves show|fast|skip`, `civwasm_set_own_moves`,
+the page's "Your automatic moves") mirrors Enemy moves for the player's own
+GoTo, Road To and Auto orders. CONTROL.C sets `civwasm_auto_step` at `uc:`
+when the command comes from one of those, never for a key or click. Fast
+steps `anim_unit` by 4 and shortens the wait before the view jumps to an
+off-screen unit; skip leaves out `map_center` and `anim_unit` (the unit is
+only redrawn where it lands, if in view) and the jump to off-screen
+automatic units. The view catches up (`own_unseen`) when such a unit next
+needs the player, and before a battle or hut it walks into.

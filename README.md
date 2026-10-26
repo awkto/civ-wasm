@@ -44,6 +44,10 @@ The server holding the zip must allow cross-origin requests.
 - **Enemy moves shown, fast or skipped.** Skipped means the map no longer
   jumps to each move another civilization makes. The setting is on the start
   page and in Settings during a game.
+- **Your automatic moves shown, fast or skipped.** GoTo, Road To and the
+  Auto orders can move without animation and without the map jumping to
+  them; the view catches up when one of those units needs you. Moves you
+  make yourself are always animated.
 - **Settings while playing.** The Settings button changes zoom, display,
   map art, animation speed, enemy moves, the city blink, refusing other
   civilizations' emissaries and autosave in the middle of a game, and saves

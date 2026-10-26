@@ -98,6 +98,13 @@ CIVWASM_EXPORT int civwasm_wide_view(void)
     return reciv_wide_view;
 }
 
+/* The page's Your automatic moves setting: 0 shown, 1 fast, 2 skipped. */
+CIVWASM_EXPORT void civwasm_set_own_moves(int mode)
+{
+    extern int16_t civwasm_own_moves;
+    civwasm_own_moves = (int16_t) (mode < 0 || mode > 2 ? 0 : mode);
+}
+
 /* --------------------------------------------------------- settings */
 
 void reciv_video_set_filter(int index);
