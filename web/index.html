@@ -113,6 +113,10 @@
         <div id="slot-list"></div>
       </details>
     </div>
+    <div class="row" id="save-files" hidden>
+      <label class="btn">Load save file…<input type="file" id="pick-save" multiple accept=".zip,.sve,.map,.SVE,.MAP"></label>
+      <span class="hint">A .zip from Download, or a CIVIL<i>n</i>.SVE with its .MAP</span>
+    </div>
     <div id="options">
     <label class="field">View
       <select id="view">
@@ -303,6 +307,47 @@ function importOldAutosave() {
   persist();
 }
 
+// Download a save as a .zip of its two files, named as the game's slots are.
+function downloadSave(base, name) {
+  const zip = fflate.zipSync({ 'CIVIL0.SVE': FS.readFile(base + '.SVE'), 'CIVIL0.MAP': FS.readFile(base + '.MAP') });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([zip], { type: 'application/zip' }));
+  a.download = name.replace(/[^\w .-]+/g, '').trim().replace(/\s+/g, '-').slice(0, 60) + '.zip';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+
+// Load save files: each .SVE with the .MAP of the same name (in a zip or
+// not) becomes a new game of yours.
+async function loadSaveFiles(fileList) {
+  fileList = [...fileList];
+  let files;
+  try { files = await collect(fileList); }
+  catch (e) { return status('Could not read those files: ' + e.message, true); }
+  let added = 0;
+  for (const [name, sve] of files) {
+    if (!/\.SVE$/.test(name)) continue;
+    const map = files.get(name.slice(0, -4) + '.MAP');
+    if (!map) continue;
+    const id = newGame(), dir = `${GAMES}/${id}`;
+    FS.writeFile(`${dir}/current.SVE`, sve);
+    FS.writeFile(`${dir}/current.MAP`, map);
+    const info = describe(`${dir}/current.SVE`);
+    if (!info || info.turn < 1) {
+      for (const n of ls(dir)) FS.unlink(`${dir}/${n}`);
+      FS.rmdir(dir);
+      continue;
+    }
+    const label = fileList.length === 1 ? fileList[0].name.replace(/\.(zip|sve|map)$/i, '').replace(/[-_]+/g, ' ').trim() : '';
+    writeJson(`${dir}/meta.json`, { ...readJson(`${dir}/meta.json`, {}), name: /^CIVIL[0-9A]$/i.test(label) ? undefined : label || undefined });
+    added++;
+  }
+  persist();
+  refresh();
+  if (!added) status('No save found there: a save is a .SVE with the .MAP of the same name.', true);
+  else status(`Added ${added} game${added > 1 ? 's' : ''} to Your games.`);
+}
+
 function button(label, action) {
   const b = document.createElement('button');
   b.textContent = label;
@@ -331,6 +376,7 @@ function renderSaves() {
     list.append(saveRow(gameName(game),
       `${game.info.leader} of the ${game.info.civ}, ${game.info.year} · played ${new Date(game.meta.played || game.info.when).toLocaleString()}`,
       button('Resume', () => start({ game: game.id })),
+      button('Download', () => downloadSave(`${game.dir}/current`, gameName(game))),
       button('Rename', () => {
         const next = prompt('Name this game:', gameName(game));
         if (next === null) return;
@@ -371,7 +417,8 @@ function renderSaves() {
     const info = describe('/saves/' + m[0]);
     if (info)
       slotList.append(saveRow(`Slot ${m[1]}`, `${info.leader} of the ${info.civ}, ${info.year} · saved ${info.when.toLocaleString()}`,
-        button('Resume', () => start({ slot: m[1] }))));
+        button('Resume', () => start({ slot: m[1] })),
+        button('Download', () => downloadSave('/saves/CIVIL' + m[1], `${info.leader} ${info.year} slot ${m[1]}`))));
   }
   $('slots').hidden = !slotList.children.length;
   $('saves').hidden = !games.length && !slotList.children.length;
@@ -383,6 +430,7 @@ function refresh() {
   const games = renderSaves();
   $('continue').hidden = !(ok && games.length);
   $('play').disabled = !ok;
+  $('save-files').hidden = !ok;
   $('forget').hidden = !ok || !!bundled;
   const skin = haveSkin();
   $('skin-hint').hidden = !skin && $('skin').value === 'dos';
@@ -513,6 +561,7 @@ $('data-url').addEventListener('keydown', e => { if (e.key === 'Enter') $('load-
 
 $('pick-dir').addEventListener('change', e => install(e.target.files));
 $('pick-files').addEventListener('change', e => install(e.target.files));
+$('pick-save').addEventListener('change', e => { loadSaveFiles(e.target.files); e.target.value = ''; });
 
 const card = $('card');
 card.addEventListener('dragover', e => { e.preventDefault(); card.classList.add('drop'); });

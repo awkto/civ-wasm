@@ -37,7 +37,9 @@ turn; the game's own Save slots are listed apart. `--continue [N]` loads
 CIVILA (or slot N) without the introduction, `--quick-setup` answers AdLib
 and mouse, and `--browser-saves` turns off the game's own AutoSave (slots
 4-9). A turn-0 save loads as a new game, so the first turn has none.
-Everything lives in the browser's IndexedDB.
+Everything lives in the browser's IndexedDB. Download gives a game (or a
+slot) as a .zip of CIVIL0.SVE and .MAP; Load save file makes a new game
+from each .SVE with its .MAP, zipped or not.
 
 ### Sharp scaling and the layers
 

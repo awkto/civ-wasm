@@ -36,7 +36,9 @@ The server holding the zip must allow cross-origin requests.
 - **Your games, saved as you play.** Each game keeps its own autosave and
   the start of each of its last 20 turns. The start page lists your games to
   continue, rename, delete, or take back to an earlier turn. The game's own
-  Save and Load slots still work and are listed apart.
+  Save and Load slots still work and are listed apart. Download keeps a
+  game as a .zip (back it up, or play it on another device), and Load save
+  file adds one back, or a DOS game's CIVIL<i>n</i>.SVE with its .MAP.
 - **Quicker play.** No sound and mouse setup questions, Continue goes
   straight back to the map, the copy-protection quiz can be skipped, and
   full-screen animations, wipes and fades run 2–3× faster (or at the
