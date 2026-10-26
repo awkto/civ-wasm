@@ -126,6 +126,8 @@ int civwasm_enemy_moves = 0;            /* civ-wasm: --enemy-moves (WIDE.H) */
 int civwasm_city_blink = 1;             /* civ-wasm: --no-city-blink (WIDE.H) */
 int civwasm_refuse_emissaries;          /* civ-wasm: --refuse-emissaries (WIDE.H) */
 int civwasm_road_cursor;                /* civ-wasm: Road To's cursor (NEWGAME.C) */
+int civwasm_own_moves;                  /* civ-wasm: --own-moves (WIDE.H) */
+int civwasm_auto_step;                  /* civ-wasm: the move under way comes from GoTo or an automatic order */
 int civwasm_better_default;             /* civ-wasm: --better-default-unit (WIDE.H) */
 int statuspics[320];            /* sprites cut from the sprite sheet; GLOBALS.H names the parts */
 int saved_found;                /* mask of saved game slots present */

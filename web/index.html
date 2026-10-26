@@ -155,6 +155,13 @@
         <option value="skip">Skip them (no map jumps)</option>
       </select>
     </label>
+    <label class="field">Your automatic moves (GoTo, Road To, Auto)
+      <select id="own-moves">
+        <option value="show">Show them</option>
+        <option value="fast">Show them fast</option>
+        <option value="skip">Skip them (no map jumps)</option>
+      </select>
+    </label>
     <label class="check"><input type="checkbox" id="city-blink" checked> Blink cities on the map that need a new build</label>
     <label class="check"><input type="checkbox" id="refuse-emissaries"> Turn away other civilizations' emissaries without asking</label>
     <label class="check"><input type="checkbox" id="better-default"> Better Default Unit: new cities build the best defender (Phalanx, Musketeers, Riflemen, Mech. Inf.)</label>
@@ -539,7 +546,7 @@ $('forget').addEventListener('click', async () => {
 });
 
 // Remember the display and view choices (a per-browser convenience).
-for (const [id, key] of [['filter', 'civ-filter'], ['view', 'civ-view'], ['anim-speed', 'civ-anim-speed'], ['skin', 'civ-skin'], ['enemy-moves', 'civ-enemy-moves']]) {
+for (const [id, key] of [['filter', 'civ-filter'], ['view', 'civ-view'], ['anim-speed', 'civ-anim-speed'], ['skin', 'civ-skin'], ['enemy-moves', 'civ-enemy-moves'], ['own-moves', 'civ-own-moves']]) {
   try { const v = localStorage.getItem(key); if (v) $(id).value = v; } catch {}
   $(id).addEventListener('change', () => { try { localStorage.setItem(key, $(id).value); } catch {} });
 }
@@ -640,6 +647,7 @@ function start({ game, slot }) {
   if ($('autosave').checked) args.push('--autosave', '3');
   args.push('--anim-speed', $('anim-speed').value);
   args.push('--enemy-moves', $('enemy-moves').value);
+  args.push('--own-moves', $('own-moves').value);
   // The Windows art is loaded whenever it is there, so Settings can switch to it.
   if (haveSkin()) args.push('--skin', SKIN, ...($('skin').value === 'winciv' ? [] : ['--skin-hidden']));
   if (!$('city-blink').checked) args.push('--no-city-blink');
@@ -673,6 +681,7 @@ live('filter', () => Module._civwasm_set_filter(['nearest', 'sharp', 'bilinear',
 live('skin', () => Module._civwasm_show_skin($('skin').value === 'winciv' ? 1 : 0));
 live('anim-speed', () => Module._civwasm_set_anim_speed(Math.round(parseFloat($('anim-speed').value) * 10)));
 live('enemy-moves', () => Module._civwasm_set_enemy_moves(['show', 'fast', 'skip'].indexOf($('enemy-moves').value)));
+live('own-moves', () => Module._civwasm_set_own_moves(['show', 'fast', 'skip'].indexOf($('own-moves').value)));
 live('autosave', () => Module._civwasm_set_autosave($('autosave').checked ? 3 : 0));
 live('city-blink', () => Module._civwasm_set_city_blink($('city-blink').checked ? 1 : 0));
 live('refuse-emissaries', () => Module._civwasm_set_refuse_emissaries($('refuse-emissaries').checked ? 1 : 0));

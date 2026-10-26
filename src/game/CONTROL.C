@@ -95,7 +95,8 @@ extern void disk_insert(), select_page(), cycle_off();
 
 extern int in_view(int, int);
 #define U armydata[civ][jf]
-static int road_pending;        /* civ-wasm: the GoTo being chosen is a Road To */
+static int road_pending;
+static int own_unseen;          /* civ-wasm: the active unit moved without being shown */        /* civ-wasm: the GoTo being chosen is a Road To */
 /* ai_turn is too large for the post-optimizer (C4063); its exact code depends
    on the compiler memory taken by identifiers it references. Keep its labels,
    locals and the globals it names short, and verify after any rename. */
@@ -166,14 +167,15 @@ void ai_turn(int civ)
                 }
                 continue;
             }
-            if (civ == civnow && !(U.status & 0xc2)) {
+            /* civ-wasm: skipped automatic moves go without the jump to them */
+            if (civ == civnow && !(U.status & 0xc2) && !(civwasm_own_moves == 2 && (U.goto_x != -1 || civwasm_auto_work[civ][jf]))) {
                 if (!(map_x0 < U.x && map_y0 < U.y && map_x0 + view_cols - 1 >= U.x && map_y0 + view_rows - 2 > U.y)) {
                     if (ke == 0) {
                         oa = 0;
                         continue;
                     } else {
                         if (still != 1)
-                            flip(30);
+                            flip(civwasm_own_moves == 1 && (U.goto_x != -1 || civwasm_auto_work[civ][jf]) ? 8 : 30);    /* civ-wasm: fast */
                         reveal(civ, U.x - 7 - WIDE_DX, U.y - 6 - WIDE_DY);
                         dl = (jf - 1) & 127;
                         ke = 0;
@@ -216,6 +218,11 @@ rd:                            /* redraw map and units */
                         if (utypes[U.type].domain == 1)
                             ek = 'h';
                         goto cmd;
+                    }
+                    if (own_unseen && jf < 128) {
+                        /* civ-wasm: the view catches up with skipped automatic moves */
+                        own_unseen = 0;
+                        map_center(civ, U.x, U.y);
                     }
                     uinit(civ, jf);
                     if (turn_tick == 0 && wy == 0) {
@@ -373,6 +380,7 @@ ck:                            /* mouse click */
 cmd:
                 if (jf < 128) {
 uc:                            /* unit command */
+                    civwasm_auto_step = civwasm_auto_work[civ][jf] || U.goto_x != -1;     /* civ-wasm: not the player's own move */
                     if (civwasm_auto_work[civ][jf])
                         ek = auto_work_goal(civ, jf);   /* civ-wasm: Auto Irrigate, Auto Mine */
                     else if (U.goto_x != -1)
@@ -850,7 +858,7 @@ mv:                            /* move unit */
                                             break;
                                     }
                                 }
-                                if (stk_plr == civnow)
+                                if (stk_plr == civnow || (civ == civnow && civwasm_auto_step && civwasm_own_moves == 2))     /* civ-wasm */
                                     map_center(civnow, oq, mc);
                                 qo = stack_other(stk_plr, qo);
                                 if (civ == civnow || stk_plr == civnow)
@@ -971,7 +979,9 @@ mv:                            /* move unit */
                         if (gi == 10 && (map_flags(oq, mc) & 2))
                             U.visibility |= 1 << cm;
                         if ((U.visibility & (1 << civnow)) || civ == civnow || (xray_on && civ != 0)) {
-                            if (((debug & 32) && civwasm_enemy_moves != 2) || civ == civnow) {    /* civ-wasm: skipped */
+                            if (civ == civnow && civwasm_auto_step && civwasm_own_moves == 2)
+                                own_unseen = 1;     /* civ-wasm: own automatic move skipped */
+                            else if (((debug & 32) && civwasm_enemy_moves != 2) || civ == civnow) {    /* civ-wasm: skipped */
                                 map_center(civnow, oq, mc);
                                 anim_unit(civ, jf, ms);
                             } else
@@ -1026,6 +1036,11 @@ mv:                            /* move unit */
                         map_refresh(civ, oq, mc);
                         unit_sight(oq, mc, civ, jf, 1L);
                         if (has_hut(gi, oq, mc) != 0) {
+                            if (civ == civnow && civwasm_auto_step && civwasm_own_moves == 2) {
+                                own_unseen = 0;     /* civ-wasm: show the hut it found */
+                                map_center(civnow, oq, mc);
+                                unit_redraw(civ, jf);
+                            }
                             enter_hut(civ, jf);
                             map_visible_to[oq * 50 + mc] |= 1;
                         }
@@ -1034,7 +1049,9 @@ mv:                            /* move unit */
                         if (civ == 0 && gi != 10 && ((1 << civnow) & map_visible_to[oq * 50 + mc]) && !((1 << civnow) & U.visibility) && townbuf[near_city(oq, mc)].owner == civnow)
                             U.visibility |= map_visible_to[oq * 50 + mc];
                         if ((U.visibility & (1 << civnow)) || civ == civnow || (xray_on && civ != 0)) {
-                            if (civ == civnow || ((debug & 32) && civwasm_enemy_moves != 2)) {
+                            if (civ == civnow && civwasm_auto_step && civwasm_own_moves == 2)
+                                unit_redraw(civ, jf);   /* civ-wasm: drawn where it is, if in view */
+                            else if (civ == civnow || ((debug & 32) && civwasm_enemy_moves != 2)) {
                                 map_center(civnow, oq, mc);
                                 unit_redraw(civ, jf);
                                 if (civ != civnow && still != 1)

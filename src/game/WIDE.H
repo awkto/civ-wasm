@@ -24,6 +24,8 @@ extern int civwasm_road_cursor_cut(int);    /* mgraphic.c */
 extern char civwasm_auto_work[8][128];  /* settlers on Auto Irrigate ('i') or Auto Mine ('m') (PATH.C) */
 extern unsigned char civwasm_auto_x[8][128], civwasm_auto_y[8][128];
 extern int auto_work_goal(int, int);
+extern int civwasm_own_moves;           /* --own-moves: the player's automatic moves 0 shown, 1 fast, 2 skipped (set while playing too) */
+extern int civwasm_auto_step;           /* the move under way is automatic (CONTROL.C uc:) */
 extern int civwasm_better_default;      /* new cities build the best defender (CITY.C; set while playing too) */
 extern int civwasm_browser_saves;       /* --browser-saves: the page keeps the saves; no AutoSave */
 /* How much further a centred view's corner sits from its centre than in
