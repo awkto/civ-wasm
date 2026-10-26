@@ -435,3 +435,65 @@ int wrap_x(int x)
         return x - 80;
     return x;
 }
+
+/* civ-wasm: Road To (Shift+T), a settlers' GoTo that builds road on every
+ * tile it crosses: 'r' while its tile has none, then unit_goal's step. It
+ * stops for orders (-1, its GoTo cleared) at the target, before a tile
+ * that cannot take a road (a river before Bridge Building), and when
+ * another civilization's unit stands next to it. The order is kept per
+ * unit here, and in saves after the game's own data (SAVE.C). */
+char civwasm_road_to[8][128];
+
+extern int has_tech(int, int);
+
+static int road_ok(int player, int x, int y)
+{
+    int t = terrain_at(x, y);
+    if (map_flags(x, y) & 9)    /* a road or a city already */
+        return 1;
+    return t != 10 && (t != 11 || has_tech(player, 19));
+}
+
+int road_to_goal(int player, int unit)
+{
+    struct unit *u = &armydata[player][unit];
+    int i, d, x, y, tx, ty, owner;
+    for (i = 1; i < 9; i++) {
+        y = u->y + spiral_y[i];
+        if (y < 0 || y > 49)
+            continue;
+        owner = map_owner(wrap_x(u->x + spiral_x[i]), y);
+        if (owner != -1 && owner != player)
+            goto stop;
+    }
+    if (!(map_flags(u->x, u->y) & 9)) {
+        if (!road_ok(player, u->x, u->y))
+            goto stop;
+        return 'r';
+    }
+    tx = (unsigned char) u->goto_x;
+    ty = (unsigned char) u->goto_y;
+    if (u->x == tx && u->y == ty)
+        goto stop;
+    d = unit_goal(player, unit);
+    if (d < 1 || d > 8) {
+        civwasm_road_to[player][unit] = 0;
+        return d;
+    }
+    x = wrap_x(u->x + spiral_x[d]);
+    y = u->y + spiral_y[d];
+    if (!road_ok(player, x, y))
+        goto stop;
+    if (x == tx && y == ty) {
+        /* unit_goal ends a GoTo on its last step; the target's road is still to build. */
+        u->goto_x = (char) tx;
+        u->goto_y = (char) ty;
+    }
+    return d;
+stop:
+    u->goto_x = u->f8 = -1;
+    u->status &= ~2;
+    u->fuel = 0;
+    civwasm_road_to[player][unit] = 0;
+    return -1;
+}

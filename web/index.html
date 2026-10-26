@@ -157,6 +157,7 @@
     </label>
     <label class="check"><input type="checkbox" id="city-blink" checked> Blink cities on the map that need a new build</label>
     <label class="check"><input type="checkbox" id="refuse-emissaries"> Turn away other civilizations' emissaries without asking</label>
+    <label class="check"><input type="checkbox" id="better-default"> Better Default Unit: new cities build the best defender (Phalanx, Musketeers, Riflemen, Mech. Inf.)</label>
     <label class="check"><input type="checkbox" id="autosave" checked> Autosave as you play (every game keeps its own save and the last 20 turns)</label>
     </div>
     <label class="check"><input type="checkbox" id="skip-quiz" checked> Skip the copy-protection quiz</label>
@@ -551,6 +552,10 @@ try { if (localStorage.getItem('civ-refuse-emissaries') === 'on') $('refuse-emis
 $('refuse-emissaries').addEventListener('change', () => {
   try { localStorage.setItem('civ-refuse-emissaries', $('refuse-emissaries').checked ? 'on' : 'off'); } catch {}
 });
+try { if (localStorage.getItem('civ-better-default') === 'on') $('better-default').checked = true; } catch {}
+$('better-default').addEventListener('change', () => {
+  try { localStorage.setItem('civ-better-default', $('better-default').checked ? 'on' : 'off'); } catch {}
+});
 $('autosave').addEventListener('change', () => {
   try { localStorage.setItem('civ-autosave', $('autosave').checked ? 'on' : 'off'); } catch {}
 });
@@ -639,6 +644,7 @@ function start({ game, slot }) {
   if (haveSkin()) args.push('--skin', SKIN, ...($('skin').value === 'winciv' ? [] : ['--skin-hidden']));
   if (!$('city-blink').checked) args.push('--no-city-blink');
   if ($('refuse-emissaries').checked) args.push('--refuse-emissaries');
+  if ($('better-default').checked) args.push('--better-default-unit');
   if (game) args.push('--continue');
   else if (slot !== undefined) args.push('--continue', slot);
   Module.callMain(args);
@@ -670,6 +676,7 @@ live('enemy-moves', () => Module._civwasm_set_enemy_moves(['show', 'fast', 'skip
 live('autosave', () => Module._civwasm_set_autosave($('autosave').checked ? 3 : 0));
 live('city-blink', () => Module._civwasm_set_city_blink($('city-blink').checked ? 1 : 0));
 live('refuse-emissaries', () => Module._civwasm_set_refuse_emissaries($('refuse-emissaries').checked ? 1 : 0));
+live('better-default', () => Module._civwasm_set_better_default($('better-default').checked ? 1 : 0));
 
 // Shortcuts while playing, taken before the game sees them: Alt with - or _
 // zooms out, with = or + zooms in, and with ` ~ or * switches the map art.

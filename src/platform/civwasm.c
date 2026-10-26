@@ -100,6 +100,12 @@ CIVWASM_EXPORT void civwasm_set_refuse_emissaries(int on)
     civwasm_refuse_emissaries = (int16_t) !!on;
 }
 
+CIVWASM_EXPORT void civwasm_set_better_default(int on)
+{
+    extern int16_t civwasm_better_default;
+    civwasm_better_default = (int16_t) !!on;
+}
+
 /* Write the autosave at the next wait for an order, whatever the
  * autosave setting: the page is about to leave the game. */
 static int save_now;

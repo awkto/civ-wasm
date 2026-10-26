@@ -50,6 +50,14 @@ The server holding the zip must allow cross-origin requests.
   and goes back to the start page to begin or continue another game.
   Shortcuts: Alt with - or _ zooms out, Alt with = or + zooms in, Alt with
   ` ~ or * switches between the Windows and DOS map art.
+- **Road To (Shift+T).** A settlers' GoTo that builds road on every tile
+  on its way, in the Orders menu below Build Road. The settlers walk over
+  road already there and stop for orders at the target, before a river they
+  cannot bridge yet, or when another civilization's unit comes next to
+  them.
+- **Better Default Unit.** A setting: new cities start on the best
+  defender you know (Phalanx, Musketeers, Riflemen, Mech. Inf.) instead of
+  Militia until Gunpowder.
 - **Display filters.** Crisp pixels, raw pixels, hq4x smoothing or bilinear, always
   at the original 4:3 shape. Fullscreen is in the toolbar (or F11).
 

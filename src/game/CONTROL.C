@@ -95,6 +95,7 @@ extern void disk_insert(), select_page(), cycle_off();
 
 extern int in_view(int, int);
 #define U armydata[civ][jf]
+static int road_pending;        /* civ-wasm: the GoTo being chosen is a Road To */
 /* ai_turn is too large for the post-optimizer (C4063); its exact code depends
    on the compiler memory taken by identifiers it references. Keep its labels,
    locals and the globals it names short, and verify after any rename. */
@@ -188,6 +189,7 @@ rd:                            /* redraw map and units */
             if (ig != 0)
                 set_mousecur(0, 0, splashhand);
             lt = ig = vz = 0;
+            road_pending = 0;   /* civ-wasm */
             do {
                 if (!(human_set & (1 << civ))) {
                     ek = ai_order(civ, jf);
@@ -289,6 +291,7 @@ rd:                            /* redraw map and units */
                         if (qo == 1) {
                             U.goto_x = oq;
                             U.goto_y = mc;
+                            civwasm_road_to[civ][jf] = 0;
                             U.f8 = -1;
                             mse_held = 0;
                             ig = 0;
@@ -312,8 +315,10 @@ ck:                            /* mouse click */
                                 U.goto_x = oq;
                                 U.goto_y = mc;
                                 U.f8 = -1;
+                                civwasm_road_to[civ][jf] = (char) road_pending;   /* civ-wasm */
                             }
                             ig = 0;
+                            road_pending = 0;
                             set_mousecur(0, 0, splashhand);
                             if (xx != 0) {
                                 xx = 0;
@@ -369,7 +374,7 @@ cmd:
                 if (jf < 128) {
 uc:                            /* unit command */
                     if (U.goto_x != -1)
-                        ek = unit_goal(civ, jf);
+                        ek = civwasm_road_to[civ][jf] ? road_to_goal(civ, jf) : unit_goal(civ, jf);     /* civ-wasm: Road To */
                     else
                         U.f8 = -1;
                     ku = U.x;
@@ -425,7 +430,17 @@ uc:                            /* unit command */
                             ke = 0;
                         }
                         break;
+                    case 'T':
+                        /* civ-wasm: Road To, a GoTo that builds road on the way (PATH.C) */
+                        if (U.type != 0) {
+                            human_msg("*SETTLERS");
+                            break;
+                        }
+                        road_pending = ig == 0;
+                        goto go_to;
                     case 'g':
+                        road_pending = 0;
+go_to:
                         if (has_mouse == 0) {
                             if (ig == 0) {
                                 if (xx == 0) {
@@ -959,7 +974,7 @@ mv:                            /* move unit */
                             U.status &= 0x30;
                         if (yg != 0 && yg < 8 && yg != civ)
                             map_claim(oq + 80, mc, 0, 2);
-                        if ((unsigned char) U.goto_x == oq && (unsigned char) U.goto_y == mc) {
+                        if ((unsigned char) U.goto_x == oq && (unsigned char) U.goto_y == mc && !civwasm_road_to[civ][jf]) {   /* civ-wasm: Road To builds there first */
                             U.goto_x = U.f8 = -1;
                             if (civ != civnow)
                                 U.moves = 0;

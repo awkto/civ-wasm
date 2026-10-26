@@ -61,7 +61,10 @@ with `--skin-hidden` for the DOS art), Animations
 (`civwasm_set_city_blink`, `--no-city-blink`), turning away emissaries
 (`civwasm_set_refuse_emissaries`, `--refuse-emissaries`: AUDIENCE.C's
 "Will you receive him?" is answered No without asking, as if the player
-had chosen it) and Autosave (`civwasm_set_autosave`). While playing, the
+had chosen it), Better Default Unit (`civwasm_set_better_default`,
+`--better-default-unit`: CITY.C starts a new city on Phalanx with Bronze
+Working and Mech. Inf. with Labor Union, besides the game's own Musketeers
+and Riflemen) and Autosave (`civwasm_set_autosave`). While playing, the
 page takes Alt with `-`/`_` and `=`/`+` (or the numpad's - and +) as zoom
 out and in, and Alt with `` ` ``/`~`/`*` as a switch of map art, by key
 position (`KeyboardEvent.code`) and before the game sees them. "Save and go to the start page" asks for an
@@ -159,3 +162,16 @@ from Emscripten's ports.
   stub does not reference the real function and GC would discard it.
   Binaryen removes what stays unused.
 - `main.c` calls `game_main()` with no arguments, matching `GAME.C`.
+
+## Road To
+
+Shift+T (or Orders, Road To) on settlers chooses a target as GoTo does.
+`civwasm_road_to[civ][unit]` (PATH.C) marks the order; CONTROL.C then asks
+`road_to_goal` instead of `unit_goal`. It answers `r` while the settlers'
+tile has no road (or city), and otherwise unit_goal's step, keeping the
+GoTo to the target so that the target gets its road too. It stops for
+orders, clearing the GoTo, at the target, before a step onto a tile that
+cannot take a road (river without Bridge Building), and whenever another
+civilization's unit stands next to the settlers. The marks are written
+after the game's own data in the save (SAVE.C); a save without them loads
+with none, and the DOS game ignores the extra bytes.
