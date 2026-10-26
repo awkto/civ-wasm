@@ -73,7 +73,8 @@ static void usage(void)
           "  --enemy-moves MODE: show (default), fast, or skip\n"
           "  --touch: no mouse pointer; a tap next to the active unit moves it\n"
           "  --skin-hidden: load the --skin but show the DOS map art\n"
-          "  --no-city-blink: cities needing a new build don't blink on the map\n", stderr);
+          "  --no-city-blink: cities needing a new build don't blink on the map\n"
+          "  --refuse-emissaries: say No to other civilizations' emissaries without asking\n", stderr);
     exit(1);
 }
 
@@ -151,6 +152,10 @@ int main(int argc, char **argv)
             /* civ-wasm: cities needing a new build don't blink (UNITS.C). */
             extern int16_t civwasm_city_blink;
             civwasm_city_blink = 0;
+        } else if (!strcmp(argv[i], "--refuse-emissaries")) {
+            /* civ-wasm: AUDIENCE.C answers "Will you receive him?" with No. */
+            extern int16_t civwasm_refuse_emissaries;
+            civwasm_refuse_emissaries = 1;
         } else if (!strcmp(argv[i], "--xray")) {
             /* civ-wasm: the game's debug view, the whole map (for tests). */
             extern int16_t xray_on;

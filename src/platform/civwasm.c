@@ -132,6 +132,12 @@ CIVWASM_EXPORT void civwasm_set_autosave(int seconds)
     civwasm_autosave_seconds = seconds < 0 ? 0 : seconds;
 }
 
+CIVWASM_EXPORT void civwasm_set_refuse_emissaries(int on)
+{
+    extern int16_t civwasm_refuse_emissaries;
+    civwasm_refuse_emissaries = (int16_t) !!on;
+}
+
 /* Write the autosave at the next wait for an order, whatever the
  * autosave setting: the page is about to leave the game. */
 static int save_now;

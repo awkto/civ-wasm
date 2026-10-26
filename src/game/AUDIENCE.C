@@ -693,6 +693,8 @@ int audience_open(int civ, int x, int y)
     if (audience_active)
         return mouse_mode;
     audience_active = 1;
+    if (mouse_mode == 0 && civwasm_refuse_emissaries)
+        mouse_mode = -1;        /* civ-wasm: answered No without asking */
     if (mouse_mode == 0) {
         if (x != -1) {
             reveal(civnow, x - 8 - WIDE_DX, y - 2 - WIDE_DY);

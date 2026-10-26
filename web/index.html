@@ -198,6 +198,7 @@
       </select>
     </label>
     <label class="check"><input type="checkbox" id="city-blink" checked> Blink cities on the map that need a new build</label>
+    <label class="check"><input type="checkbox" id="refuse-emissaries"> Turn away other civilizations' emissaries without asking</label>
     <label class="check"><input type="checkbox" id="autosave" checked> Autosave as you play (every game keeps its own save and the last 20 turns)</label>
     </div>
     <label class="check"><input type="checkbox" id="skip-quiz" checked> Skip the copy-protection quiz</label>
@@ -594,6 +595,10 @@ try { if (localStorage.getItem('civ-city-blink') === 'off') $('city-blink').chec
 $('city-blink').addEventListener('change', () => {
   try { localStorage.setItem('civ-city-blink', $('city-blink').checked ? 'on' : 'off'); } catch {}
 });
+try { if (localStorage.getItem('civ-refuse-emissaries') === 'on') $('refuse-emissaries').checked = true; } catch {}
+$('refuse-emissaries').addEventListener('change', () => {
+  try { localStorage.setItem('civ-refuse-emissaries', $('refuse-emissaries').checked ? 'on' : 'off'); } catch {}
+});
 $('autosave').addEventListener('change', () => {
   try { localStorage.setItem('civ-autosave', $('autosave').checked ? 'on' : 'off'); } catch {}
 });
@@ -688,6 +693,7 @@ function start({ game, slot }) {
   // The Windows art is loaded whenever it is there, so Settings can switch to it.
   if (haveSkin()) args.push('--skin', SKIN, ...($('skin').value === 'winciv' ? [] : ['--skin-hidden']));
   if (!$('city-blink').checked) args.push('--no-city-blink');
+  if ($('refuse-emissaries').checked) args.push('--refuse-emissaries');
   if (game) args.push('--continue');
   else if (slot !== undefined) args.push('--continue', slot);
   Module.callMain(args);
@@ -718,6 +724,26 @@ live('anim-speed', () => Module._civwasm_set_anim_speed(Math.round(parseFloat($(
 live('enemy-moves', () => Module._civwasm_set_enemy_moves(['show', 'fast', 'skip'].indexOf($('enemy-moves').value)));
 live('autosave', () => Module._civwasm_set_autosave($('autosave').checked ? 3 : 0));
 live('city-blink', () => Module._civwasm_set_city_blink($('city-blink').checked ? 1 : 0));
+live('refuse-emissaries', () => Module._civwasm_set_refuse_emissaries($('refuse-emissaries').checked ? 1 : 0));
+
+// Shortcuts while playing, taken before the game sees them: Alt with - or _
+// zooms out, with = or + zooms in, and with ` ~ or * switches the map art.
+// By key position, so Shift and keyboard layouts don't matter.
+const SHORTCUTS = { Minus: () => zoom(-1), NumpadSubtract: () => zoom(-1), Equal: () => zoom(1), NumpadAdd: () => zoom(1),
+  Backquote: switchArt, NumpadMultiply: switchArt, Digit8: switchArt };
+function switchArt() {
+  if (!haveSkin()) return;
+  $('skin').value = $('skin').value === 'winciv' ? 'dos' : 'winciv';
+  $('skin').dispatchEvent(new Event('change'));
+}
+for (const t of ['keydown', 'keyup', 'keypress'])
+  addEventListener(t, e => {
+    const act = SHORTCUTS[e.code];
+    if (!playing() || !e.altKey || e.ctrlKey || e.metaKey || !act || (e.code === 'Digit8' && !e.shiftKey)) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if (t === 'keydown' && !e.repeat) act();
+  }, true);
 
 // Back to the start page: the game saves at its next wait for an order;
 // file that save under this game, then reload.

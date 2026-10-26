@@ -42,8 +42,13 @@ own options, which apply at once: View (zoom, also − and +), Display
 (`civwasm_show_skin`; the page always loads `civdata4.rsc` when it has it,
 with `--skin-hidden` for the DOS art), Animations
 (`civwasm_set_anim_speed`), Enemy moves, the city blink
-(`civwasm_set_city_blink`, `--no-city-blink`) and Autosave
-(`civwasm_set_autosave`). "Save and go to the start page" asks for an
+(`civwasm_set_city_blink`, `--no-city-blink`), turning away emissaries
+(`civwasm_set_refuse_emissaries`, `--refuse-emissaries`: AUDIENCE.C's
+"Will you receive him?" is answered No without asking, as if the player
+had chosen it) and Autosave (`civwasm_set_autosave`). While playing, the
+page takes Alt with `-`/`_` and `=`/`+` (or the numpad's - and +) as zoom
+out and in, and Alt with `` ` ``/`~`/`*` as a switch of map art, by key
+position (`KeyboardEvent.code`) and before the game sees them. "Save and go to the start page" asks for an
 autosave at the next wait for an order (`civwasm_save_now`), files it under
 the game and reloads.
 
