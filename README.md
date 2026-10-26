@@ -36,7 +36,9 @@ The server holding the zip must allow cross-origin requests.
 - **Your games, saved as you play.** Each game keeps its own autosave and
   the start of each of its last 20 turns. The start page lists your games to
   continue, rename, delete, or take back to an earlier turn. The game's own
-  Save and Load slots still work and are listed apart.
+  Save and Load slots still work and are listed apart. Download keeps a
+  game as a .zip (back it up, or play it on another device), and Load save
+  file adds one back, or a DOS game's CIVIL<i>n</i>.SVE with its .MAP.
 - **Quicker play.** No sound and mouse setup questions, Continue goes
   straight back to the map, the copy-protection quiz can be skipped, and
   full-screen animations, wipes and fades run 2–3× faster (or at the
@@ -66,6 +68,11 @@ The server holding the zip must allow cross-origin requests.
   Other terrain is left alone. Enemies don't interrupt them; when nothing
   is left to do they ask for orders. Activating them gives them back to
   you.
+- **Rail To (Shift+T), Auto Road (Shift+A), Auto Rail (Shift+L).** Rail To
+  is Road To laying railroad (road first where there is none). Auto Road
+  and Auto Rail link your cities on the settlers' landmass with the
+  shortest network of straight-ish roads or railroads, working the nearest
+  tile still missing; Rail To and Auto Rail need Railroad.
 - **Better Default Unit.** A setting: new cities start on the best
   defender you know (Phalanx, Musketeers, Riflemen, Mech. Inf.) instead of
   Militia until Gunpowder.

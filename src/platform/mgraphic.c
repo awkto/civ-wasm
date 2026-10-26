@@ -800,19 +800,26 @@ static void sprite_pixels(uint16_t sprite, uint8_t *out, uint16_t w, uint16_t h)
     }
 }
 
-/* civ-wasm: Road To's cursor, cut while the game's sprites are: the GoTo
- * cursor's arrow, with ROAD where it has GO, in its 4 x 5 white letters
- * shadowed down and right in colour 5. */
-int16_t civwasm_road_cursor_cut(int16_t goto_sprite)
+/* civ-wasm: Road To's and Rail To's cursors, cut while the game's sprites
+ * are: the GoTo cursor's arrow, with ROAD (word 0) or RAIL (word 1) where
+ * it has GO, in its 4 x 5 white letters shadowed down and right in
+ * colour 5. */
+int16_t civwasm_road_cursor_cut(int16_t goto_sprite, int16_t word)
 {
-    static const char *const letters[4][5] = {
+    static const char *const glyphs[6][5] = {
         { "1111", "1001", "1111", "1010", "1001" },   /* R */
         { "1111", "1001", "1001", "1001", "1111" },   /* O */
         { "1111", "1001", "1111", "1001", "1001" },   /* A */
         { "1110", "1001", "1001", "1001", "1110" },   /* D */
+        { "1111", "0110", "0110", "0110", "1111" },   /* I */
+        { "1000", "1000", "1000", "1000", "1111" },   /* L */
     };
+    static const int words[2][4] = { { 0, 1, 2, 3 }, { 0, 2, 4, 5 } };
+    const char *const *letters[4];
     enum { W = 24, H = 16 };
     uint8_t px[W * H] = { 0 }, arrow[16 * 16] = { 0 };
+    for (int k = 0; k < 4; k++)
+        letters[k] = glyphs[words[word ? 1 : 0][k]];
     sprite_pixels((uint16_t) goto_sprite, arrow, 16, 16);
     for (int r = 0; r < 6; r++)
         memcpy(px + r * W, arrow + r * 16, 16);

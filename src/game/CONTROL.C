@@ -395,7 +395,9 @@ cmd:
                 if (jf < 128) {
 uc:                            /* unit command */
                     civwasm_auto_step = civwasm_auto_work[civ][jf] || U.goto_x != -1;     /* civ-wasm: not the player's own move */
-                    if (civwasm_auto_work[civ][jf])
+                    if (civwasm_auto_work[civ][jf] == 'a' || civwasm_auto_work[civ][jf] == 'l')
+                        ek = auto_road_goal(civ, jf);   /* civ-wasm: Auto Road, Auto Rail */
+                    else if (civwasm_auto_work[civ][jf])
                         ek = auto_work_goal(civ, jf);   /* civ-wasm: Auto Irrigate, Auto Mine */
                     else if (U.goto_x != -1)
                         ek = civwasm_road_to[civ][jf] ? road_to_goal(civ, jf) : unit_goal(civ, jf);     /* civ-wasm: Road To */
@@ -456,24 +458,36 @@ uc:                            /* unit command */
                         break;
                     case 'I':
                     case 'M':
-                        /* civ-wasm: Auto Irrigate, Auto Mine, around this tile (PATH.C) */
+                    case 'A':
+                    case 'L':
+                        /* civ-wasm: Auto Irrigate, Auto Mine around this tile, Auto Road,
+                         * Auto Rail between the cities on this landmass (PATH.C) */
                         if (U.type != 0) {
                             human_msg("*SETTLERS");
                             break;
                         }
-                        civwasm_auto_work[civ][jf] = (char) (ek == 'I' ? 'i' : 'm');
+                        if (ek == 'L' && !has_tech(civ, 49)) {
+                            show_msg("Railroad not yet\ndiscovered.\n", 100, 80);
+                            break;
+                        }
+                        civwasm_auto_work[civ][jf] = (char) (ek == 'I' ? 'i' : ek == 'M' ? 'm' : ek == 'A' ? 'a' : 'l');
                         civwasm_auto_x[civ][jf] = (unsigned char) ku;
                         civwasm_auto_y[civ][jf] = (unsigned char) jv;
                         civwasm_road_to[civ][jf] = 0;
                         U.goto_x = U.f8 = -1;
                         break;
+                    case 'T':
                     case 'R':
-                        /* civ-wasm: Road To, a GoTo that builds road on the way (PATH.C) */
+                        /* civ-wasm: Road To, Rail To, a GoTo that builds road or railroad on the way (PATH.C) */
                         if (U.type != 0) {
                             human_msg("*SETTLERS");
                             break;
                         }
-                        road_pending = ig == 0;
+                        if (ek == 'T' && !has_tech(civ, 49)) {
+                            show_msg("Railroad not yet\ndiscovered.\n", 100, 80);
+                            break;
+                        }
+                        road_pending = ig == 0 ? (ek == 'T' ? 2 : 1) : 0;
                         goto go_to;
                     case 'g':
                         road_pending = 0;
@@ -494,7 +508,7 @@ go_to:
                                 }
                             }
                         } else
-                            set_mousecur(0, 0, ig != 0 ? statuspics[7] : road_pending ? civwasm_road_cursor : statuspics[2]);   /* civ-wasm: Road To's own */
+                            set_mousecur(0, 0, ig != 0 ? statuspics[7] : road_pending == 2 ? civwasm_rail_cursor : road_pending ? civwasm_road_cursor : statuspics[2]);   /* civ-wasm: Road To's own */
                         ig ^= 1;
                         break;
                     case 'h':

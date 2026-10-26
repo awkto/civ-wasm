@@ -437,12 +437,13 @@ int wrap_x(int x)
 }
 
 /* civ-wasm: Road To (Shift+R), a settlers' GoTo that builds road on every
- * tile it crosses: 'r' while its tile has none, then unit_goal's step. It
+ * tile it crosses, and Rail To (Shift+T), railroad (the road first where
+ * there is none): 'r' while its tile needs it, then unit_goal's step. It
  * stops for orders (-1, its GoTo cleared) at the target, before a tile
  * that cannot take a road (a river before Bridge Building), and when
  * another civilization's unit stands next to it. The order is kept per
  * unit here, and in saves after the game's own data (SAVE.C). */
-char civwasm_road_to[8][128];
+char civwasm_road_to[8][128];          /* 1 Road To, 2 Rail To */
 
 extern int has_tech(int, int);
 
@@ -454,10 +455,21 @@ static int road_ok(int player, int x, int y)
     return t != 10 && (t != 11 || has_tech(player, 19));
 }
 
+/* The tile still wants what 'r' would build there: road, or with `rail`
+ * railroad (CONTROL.C's 'r' case: a city tile takes neither). */
+static int lay_needed(int x, int y, int rail)
+{
+    int f = map_flags(x, y);
+    if (f & 1)
+        return 0;
+    return rail ? !(f & 16) : !(f & 8);
+}
+
 int road_to_goal(int player, int unit)
 {
     struct unit *u = &armydata[player][unit];
     int i, d, x, y, tx, ty, owner;
+    int rail = civwasm_road_to[player][unit] == 2 && has_tech(player, 49);
     for (i = 1; i < 9; i++) {
         y = u->y + spiral_y[i];
         if (y < 0 || y > 49)
@@ -466,7 +478,7 @@ int road_to_goal(int player, int unit)
         if (owner != -1 && owner != player)
             goto stop;
     }
-    if (!(map_flags(u->x, u->y) & 9)) {
+    if (lay_needed(u->x, u->y, rail)) {
         if (!road_ok(player, u->x, u->y))
             goto stop;
         return 'r';
@@ -568,6 +580,155 @@ int auto_work_goal(int player, int unit)
         goto stop;
     if (bx == u->x && by == u->y)
         return order;
+    u->goto_x = (char) bx;
+    u->goto_y = (char) by;
+    d = unit_goal(player, unit);
+    if (d < 1 || d > 8)
+        goto stop;
+    return d;
+stop:
+    civwasm_auto_work[player][unit] = 0;
+    u->goto_x = u->f8 = -1;
+    return -1;
+}
+
+/* civ-wasm: Auto Road (Shift+A) and Auto Rail (Shift+L): settlers link the
+ * player's cities on the landmass where they got the order with road (or
+ * railroad, the road first). The links are a shortest network (Kruskal
+ * over each city's four nearest cities); each link is a straight-ish line
+ * of steps that always come closer to the far city, over land that can
+ * take a road and past no foreign city or unit. A link that cannot be
+ * walked so is left out. The settlers work the tile nearest to them that
+ * a link still needs and no other auto settler has taken, chosen again at
+ * every move; when none is left they ask for orders. */
+extern int map_city(int, int);
+extern struct city townbuf[128];
+
+static int cheb(int x1, int y1, int x2, int y2)
+{
+    int dx = wrap_dist(x1, x2), dy = abs(y1 - y2);
+    return dx > dy ? dx : dy;
+}
+
+static int wrap_dx(int from, int to)    /* to - from, the short way round */
+{
+    return (to - from + 120) % 80 - 40;
+}
+
+/* The next step from (x, y) on the link (x0, y0) to (tx, ty), or -1. */
+static int link_step(int player, int x0, int y0, int x, int y, int tx, int ty, int rail)
+{
+    int i, x2, y2, d0 = cheb(x, y, tx, ty), s, best = -1, best_s = 32767, owner, cross;
+    for (i = 1; i < 9; i++) {
+        x2 = wrap_x(x + spiral_x[i]);
+        y2 = y + spiral_y[i];
+        if (y2 < 1 || y2 > 48 || cheb(x2, y2, tx, ty) >= d0)
+            continue;
+        if (!(x2 == tx && y2 == ty)) {
+            if (!road_ok(player, x2, y2))
+                continue;
+            if ((map_flags(x2, y2) & 1) && map_city(x2, y2) != player)
+                continue;
+            owner = map_owner(x2, y2);
+            if (owner != -1 && owner != player)
+                continue;
+        }
+        cross = wrap_dx(x0, tx) * (y2 - y0) - (ty - y0) * wrap_dx(x0, x2);
+        s = (lay_needed(x2, y2, rail) ? 8 * terrains[terrain_at(x2, y2)].cost : 0) + abs(cross);
+        if (s < best_s) {
+            best_s = s;
+            best = i;
+        }
+    }
+    return best;
+}
+
+static int link_root(int *parent, int i)
+{
+    while (parent[i] != i)
+        i = parent[i] = parent[parent[i]];
+    return i;
+}
+
+int auto_road_goal(int player, int unit)
+{
+    static int cx[128], cy[128], parent[128], ea[512], eb[512], el[512];
+    struct unit *u = &armydata[player][unit];
+    int rail = civwasm_auto_work[player][unit] == 'l' && has_tech(player, 49);
+    int region = region_key(civwasm_auto_x[player][unit], civwasm_auto_y[player][unit]);
+    int n = 0, edges = 0, i, j, k, a, b, d, x, y, steps, bx = -1, by = 0, best = 32767;
+    int near_j[4], near_d[4];
+    if ((u->status & 2) && lay_needed(u->x, u->y, rail) && road_ok(player, u->x, u->y))
+        return 'r';             /* work under way goes on */
+    for (i = 0; i < 128; i++)
+        if (townbuf[i].status != -1 && townbuf[i].owner == player && region_key(townbuf[i].x, townbuf[i].y) == region) {
+            cx[n] = townbuf[i].x;
+            cy[n] = townbuf[i].y;
+            parent[n] = n;
+            n++;
+        }
+    /* Each city's four nearest, by length, shortest first. */
+    for (i = 0; i < n; i++) {
+        for (k = 0; k < 4; k++)
+            near_j[k] = -1, near_d[k] = 32767;
+        for (j = 0; j < n; j++) {
+            if (j == i)
+                continue;
+            d = cheb(cx[i], cy[i], cx[j], cy[j]);
+            for (k = 0; k < 4 && d >= near_d[k]; k++)
+                ;
+            if (k == 4)
+                continue;
+            for (a = 3; a > k; a--)
+                near_j[a] = near_j[a - 1], near_d[a] = near_d[a - 1];
+            near_j[k] = j;
+            near_d[k] = d;
+        }
+        for (k = 0; k < 4 && near_j[k] != -1 && edges < 512; k++) {
+            for (a = edges; a > 0 && el[a - 1] > near_d[k]; a--)
+                ea[a] = ea[a - 1], eb[a] = eb[a - 1], el[a] = el[a - 1];
+            ea[a] = i;
+            eb[a] = near_j[k];
+            el[a] = near_d[k];
+            edges++;
+        }
+    }
+    for (k = 0; k < edges; k++) {
+        int lbx = -1, lby = 0, lbest = 32767;
+        a = ea[k];
+        b = eb[k];
+        if (link_root(parent, a) == link_root(parent, b))
+            continue;
+        x = cx[a];
+        y = cy[a];
+        for (steps = 0; steps < 80 && !(x == cx[b] && y == cy[b]); steps++) {
+            d = link_step(player, cx[a], cy[a], x, y, cx[b], cy[b], rail);
+            if (d == -1)
+                break;
+            x = wrap_x(x + spiral_x[d]);
+            y += spiral_y[d];
+            if (lay_needed(x, y, rail) && road_ok(player, x, y)) {
+                j = cheb(u->x, u->y, x, y);
+                if (j < lbest && !auto_taken(player, unit, x, y)) {
+                    lbest = j;
+                    lbx = x;
+                    lby = y;
+                }
+            }
+        }
+        if (!(x == cx[b] && y == cy[b]))
+            continue;           /* not walkable: left out */
+        parent[link_root(parent, a)] = link_root(parent, b);
+        if (lbx != -1 && lbest < best) {
+            best = lbest;
+            bx = lbx;
+            by = lby;
+        }
+    }
+    if (bx == -1)
+        goto stop;
+    if (bx == u->x && by == u->y)
+        return 'r';
     u->goto_x = (char) bx;
     u->goto_y = (char) by;
     d = unit_goal(player, unit);

@@ -169,9 +169,18 @@ void unit_orders_menu(int p, int u)
         }
         strcat(msgtext, " Road To \217R\n");      /* civ-wasm: a GoTo that builds road */
         keybuf[pos++] = 'R';
-        strcat(msgtext, " Auto Irrigate \217I\n Auto Mine \217M\n");    /* civ-wasm: PATH.C */
+        if (has_tech(p, 0x31)) {
+            strcat(msgtext, " Rail To \217T\n");
+            keybuf[pos++] = 'T';
+        }
+        strcat(msgtext, " Auto Irrigate \217I\n Auto Mine \217M\n Auto Road \217A\n");    /* civ-wasm: PATH.C */
         keybuf[pos++] = 'I';
         keybuf[pos++] = 'M';
+        keybuf[pos++] = 'A';
+        if (has_tech(p, 0x31)) {
+            strcat(msgtext, " Auto Rail \217L\n");
+            keybuf[pos++] = 'L';
+        }
         if (!(tileflags & 2)) {
             if (work_rules[ter].irrigate == -2) {
                 strcat(msgtext, " Build Irrigation");
