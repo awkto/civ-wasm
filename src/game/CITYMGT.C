@@ -1275,6 +1275,7 @@ label_support_restart:
         }
         draw_line(231, 0, 250, 0, 0);
         draw_line(231, 1, 250, 1, 1);
+        civwasm_skin_fill(scrbuf, 231, 0, 20, 2, SKIN_FRAME);   /* civ-wasm: the frame those lines mend */
         if (bld_pages_p & 2)
             draw_button(287, 88, 315, 96, "MORE", 9);
         recolour_rect(scrbuf, 309, 2, 8, 96, 14, 12);

@@ -39,6 +39,17 @@ and mouse, and `--browser-saves` turns off the game's own AutoSave (slots
 4-9). A turn-0 save loads as a new game, so the first turn has none.
 Everything lives in the browser's IndexedDB.
 
+### Sharp scaling and the layers
+
+The DOS picture, the skin's 2x picture, an hq4x picture and the text layer
+are each enlarged by nearest pixels to the same multiple (of 2 with the
+skin, of 4 with hq4x) nearest the view's scale, then stretched once
+linearly (`sharp_factor`, `sharp_stage` in video.c); scale modes are set
+every frame. The page keeps text on its own layer (`--text-filter sharp`),
+so hq4x never smooths it. With the skin and hq4x, the screen is smoothed as
+one picture (each pixel the average of its 2 x 2 in the skin's picture) and
+the skin's own pixels go back on top unsmoothed.
+
 ### Settings while playing
 
 The toolbar's Settings button opens an overlay holding the start page's
