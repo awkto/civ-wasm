@@ -37,7 +37,8 @@ static int filter_failed;
 /* civ-wasm: the WinCiv skin, composited at twice the screen's size. */
 static SDL_Texture *skin_texture, *skin_scaled_texture;
 static uint32_t *skin_pixels;
-static int layer_unit = 1;              /* 2 while the skin's 2x picture is shown */
+static int layer_unit = 1;              /* texels per screen pixel of the picture shown: 2 skin, 4 hq4x */
+static int skin_hq;                     /* the skin's picture is hq4x'd in filtered_texture */
 static uint16_t start_address;          /* CRTC start address, in 4-pixel units */
 static void text_clear(void);
 static int video_mode = 3;
@@ -409,6 +410,25 @@ static SDL_Texture *sharp_stage(SDL_Texture *src, int unit, int factor, SDL_Text
     return copied ? *target : NULL;
 }
 
+/* A filter's picture, unit texels per screen pixel (hq4x: 4), to the view:
+ * enlarged by nearest pixels to the sharp factor, then stretched. */
+static void present_enlarged(SDL_Texture *src, int unit, SDL_Texture **target)
+{
+    SDL_Texture *display = NULL;
+    int factor;
+    layer_unit = unit;
+    factor = sharp_factor();
+    if (factor > unit)
+        display = sharp_stage(src, unit, factor, target, SDL_PIXELFORMAT_XRGB8888, 0);
+    if (!display) {
+        display = src;
+        factor = unit;
+        SDL_SetTextureScaleMode(src, SDL_SCALEMODE_LINEAR);
+    }
+    SDL_FRect part = { 0, 0, (float) shown_w() * factor, (float) shown_h() * factor };
+    SDL_RenderTexture(renderer, display, &part, &view);
+}
+
 /* Sharp bilinear: nearest-neighbour integer enlargement first, then linear
  * sampling for the remaining stretch (including the VGA's 4:3 correction).
  * This limits blending to pixel boundaries instead of blurring whole pixels.
@@ -421,8 +441,8 @@ static void present_graphics(void)
         int factor = reciv_filter_factor(filter);
         if (reciv_filter_scale(filter, frame_pixels, filtered_pixels, SW, SH) &&
             SDL_UpdateTexture(filtered_texture, NULL, filtered_pixels, SW * factor * (int) sizeof(uint32_t))) {
-            display = filtered_texture;
-            display_factor = factor;
+            present_enlarged(filtered_texture, factor, &scaled_texture);
+            return;
         } else {
             reciv_log("graphics filter failed; using nearest pixels");
             filter_failed = 1;
@@ -446,6 +466,48 @@ static void present_graphics(void)
     }
     SDL_FRect part = { 0, 0, (float) shown_w() * display_factor, (float) shown_h() * display_factor };
     SDL_RenderTexture(renderer, display, &part, &view);
+}
+
+/* civ-wasm: hq4x with the skin. The screen is smoothed as one picture,
+ * each pixel the average of its 2 x 2 in the skin's picture (so DOS
+ * sprites, panels and text blend with the skin's colours, as in the DOS
+ * picture), then the skin's own pixels go back on top unsmoothed, each as
+ * 2 x 2 of the 4x result. False if the filter is unavailable. */
+static int skin_hq4x(const uint8_t *skin, const uint8_t *text_mask, const uint32_t *colours, uint32_t offset)
+{
+    int w2 = 2 * SW, w4 = 4 * SW;
+    if (!filtered_pixels || !filtered_texture)
+        return 0;
+    for (int y = 0; y < SH; y++)
+        for (int x = 0; x < SW; x++) {
+            const uint32_t *p = skin_pixels + (size_t) (2 * y) * w2 + 2 * x, *q = p + w2;
+            uint32_t r = 0, g = 0, b = 0;
+            for (int i = 0; i < 4; i++) {
+                uint32_t c = i < 2 ? p[i] : q[i - 2];
+                r += c >> 16 & 255;
+                g += c >> 8 & 255;
+                b += c & 255;
+            }
+            frame_pixels[y * SW + x] = (r / 4) << 16 | (g / 4) << 8 | b / 4;
+        }
+    if (!reciv_filter_scale(filter, frame_pixels, filtered_pixels, SW, SH))
+        return 0;
+    for (int y = 0; y < SH; y++)
+        for (int x = 0; x < SW; x++) {
+            uint32_t at = (uint32_t) y * SW + x + offset, sa;
+            if (at >= (uint32_t) (SW * SH) || (text_mask[at] && !split_text))
+                continue;
+            sa = at + (uint32_t) (at / SW) * SW;
+            for (int j = 0; j < 2; j++)
+                for (int i = 0; i < 2; i++) {
+                    uint8_t k = skin[2 * (size_t) sa + (size_t) j * w2 + i];
+                    if (k) {
+                        uint32_t *o = filtered_pixels + (size_t) (4 * y + 2 * j) * w4 + 4 * x + 2 * i;
+                        o[0] = o[1] = o[w4] = o[w4 + 1] = colours[k];
+                    }
+                }
+        }
+    return SDL_UpdateTexture(filtered_texture, NULL, filtered_pixels, w4 * (int) sizeof(uint32_t));
 }
 
 /* The skin's picture: each screen pixel as 2 x 2, a skin colour where the
@@ -502,6 +564,13 @@ static int skin_frame(const uint32_t *palette, uint32_t offset)
                 continue;
             }
             base = palette[background[at]];
+            if (text_mask[at] && split_text) {
+                /* civ-wasm: the text layer's light text on a cream panel is drawn dark. */
+                uint32_t sa = at + (uint32_t) (at / SW) * SW, *t = &text_pixels[at - offset];
+                if (skin[2 * (size_t) sa] == RECIV_SKIN_PANEL + 1 &&
+                    (*t >> 16 & 255) * 3 + (*t >> 8 & 255) * 6 + (*t & 255) > 1280)
+                    *t = 0xFF101010u;
+            }
             if (text_mask[at] && !split_text) {
                 /* civ-wasm: light text on a cream city-screen panel is drawn dark. */
                 uint32_t sa = at + (uint32_t) (at / SW) * SW;
@@ -521,6 +590,9 @@ static int skin_frame(const uint32_t *palette, uint32_t offset)
             }
         }
     }
+    skin_hq = filter == RECIV_FILTER_HQ4X && !filter_failed && skin_hq4x(skin, text_mask, colours, offset);
+    if (skin_hq)
+        return 1;
     SDL_UpdateTexture(skin_texture, NULL, skin_pixels, w2 * (int) sizeof(uint32_t));
     return 1;
 }
@@ -531,6 +603,10 @@ static void present_skin(void)
 {
     SDL_Texture *display = skin_texture;
     int display_factor = 2;
+    if (skin_hq) {
+        present_enlarged(filtered_texture, 4, &skin_scaled_texture);
+        return;
+    }
     if (filter == RECIV_FILTER_NEAREST || filter == RECIV_FILTER_BILINEAR)
         SDL_SetTextureScaleMode(skin_texture, filter == RECIV_FILTER_BILINEAR ?
                                 SDL_SCALEMODE_LINEAR : SDL_SCALEMODE_NEAREST);
@@ -612,7 +688,6 @@ void reciv_video_present(int force)
             frame_pixels[i] = palette[background[i]];
             text_pixels[i] = text_mask[i] ? 0xFF000000u | palette[src[i]] : 0;
         }
-        SDL_UpdateTexture(text_texture, NULL, text_pixels, SW * (int) sizeof(uint32_t));
     } else {
         for (int i = 0; i < pixels; ++i)
             frame_pixels[i] = palette[src[i]];
@@ -625,8 +700,11 @@ void reciv_video_present(int force)
         SDL_UpdateTexture(texture, NULL, frame_pixels, SW * (int) sizeof(uint32_t));
         present_graphics();
     }
-    if (split_text)
+    if (split_text) {
+        /* After skin_frame, which darkens text on its cream panels. */
+        SDL_UpdateTexture(text_texture, NULL, text_pixels, SW * (int) sizeof(uint32_t));
         present_graphics_text();
+    }
     SDL_RenderPresent(renderer);
 }
 

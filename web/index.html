@@ -630,7 +630,7 @@ function start({ game, slot }) {
   setInterval(save, 3000);
   addEventListener('pagehide', save);
   document.addEventListener('visibilitychange', () => document.hidden && save());
-  const args = ['-d', '/civ', '-s', '/saves', '--quick-setup', '--browser-saves', '--filter', $('filter').value, '--text-filter', 'same', ...screenArg()];
+  const args = ['-d', '/civ', '-s', '/saves', '--quick-setup', '--browser-saves', '--filter', $('filter').value, '--text-filter', 'sharp', ...screenArg()];
   if ($('skip-quiz').checked) args.push('--skip-quiz');
   if ($('autosave').checked) args.push('--autosave', '3');
   args.push('--anim-speed', $('anim-speed').value);
