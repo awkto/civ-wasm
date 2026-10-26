@@ -536,6 +536,10 @@ void setup_art(void)
         marks_pics[i] = cut_tile(1, i * 16 + 80, 128, 16, 16);
     for (i = 0; i < 7; i++)
         statuspics[i] = cut_tile(1, i * 16, 32, 16, 16);
+    {
+        extern int civwasm_road_cursor, civwasm_road_cursor_cut(int);
+        civwasm_road_cursor = civwasm_road_cursor_cut(statuspics[2]);   /* civ-wasm: Road To's cursor */
+    }
     splashhand = mouse_cursor;
     for (i = 0; i < 8; i++)
         pointer_cursor_icon[i] = cut_tile(1, (i & 3) * 8 + 129, (i & 4) * 2 + 33, 7, 7);

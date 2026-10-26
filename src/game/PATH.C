@@ -436,7 +436,7 @@ int wrap_x(int x)
     return x;
 }
 
-/* civ-wasm: Road To (Shift+T), a settlers' GoTo that builds road on every
+/* civ-wasm: Road To (Shift+R), a settlers' GoTo that builds road on every
  * tile it crosses: 'r' while its tile has none, then unit_goal's step. It
  * stops for orders (-1, its GoTo cleared) at the target, before a tile
  * that cannot take a road (a river before Bridge Building), and when
