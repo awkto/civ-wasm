@@ -971,6 +971,24 @@ void civwasm_skin_fill(const struct page16 *pg, int16_t x, int16_t y, int16_t w,
     reciv_video_dirty();
 }
 
+/* civ-wasm: recolour the skin alone in a rectangle, colours as
+ * civwasm_skin_fill takes them (sheet colours 0 to 126), or 128 + n for
+ * DOS colour n. The city screen's CHANGE button blinks yellow this way
+ * over WinCiv's grey, where recolour_rect reaches only the DOS pixels. */
+void civwasm_skin_recolour(const struct page16 *pg, int16_t x, int16_t y, int16_t w, int16_t h, int16_t from, int16_t to)
+{
+    uint8_t *skin = skin_get((uint16_t) pg->number & 7);
+    uint8_t f = (uint8_t) (from < 127 ? from + 1 : from), t = (uint8_t) (to < 127 ? to + 1 : to);
+    int32_t ax = x + pg->left, ay = y + pg->top;
+    if (!skin || ax < 0 || ay < 0)
+        return;
+    for (int32_t r = 2 * ay; r < 2 * (ay + h) && r < 2 * reciv_screen_h; r++)
+        for (int32_t c = 2 * ax; c < 2 * (ax + w) && c < 2 * reciv_screen_w; c++)
+            if (skin[(size_t) r * SKW + c] == f)
+                skin[(size_t) r * SKW + c] = t;
+    reciv_video_dirty();
+}
+
 /* civ-wasm: a sprite's skin picture alone, over the skin layer, leaving
  * the page's own pixels as they are. MAP.C draws irrigation under the
  * terrain, where the DOS land shows it through its gaps; WinCiv's land
