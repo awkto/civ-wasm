@@ -946,6 +946,21 @@ void sprite_draw(const struct page16 *pg, int16_t x, int16_t y, int16_t sprite)
     reciv_video_dirty();
 }
 
+/* civ-wasm: a sprite's skin picture alone, over the skin layer, leaving
+ * the page's own pixels as they are. MAP.C draws irrigation under the
+ * terrain, where the DOS land shows it through its gaps; WinCiv's land
+ * covers the whole tile, so the skin's irrigation goes on top as well. */
+void civwasm_skin_sprite(const struct page16 *pg, int16_t x, int16_t y, int16_t sprite)
+{
+    const struct skin_sprite *s = skin_on && sprite ? skin_sprites[(uint16_t) sprite] : NULL;
+    if (!s)
+        return;
+    x = (int16_t) (x + pg->left);
+    y = (int16_t) (y + pg->top);
+    skin_sprite_draw((uint16_t) pg->number & 7, s, x, y, x, y, s->w / 2, s->h / 2);
+    reciv_video_dirty();
+}
+
 /* -------------------------------------------------------- mouse cursor */
 
 /* The cursor is a sprite drawn into the screen. The 512 bytes under it are

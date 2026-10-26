@@ -255,6 +255,8 @@ int seen_map(int x, int y)
                     neigh |= 8;
             }
             sprite_draw(scrbuf, sx, y2, world_landscape_sprite[ter][neigh]);
+            if ((seen & 2) && bare_flag == 0 && !(seen & 1))
+                civwasm_skin_sprite(scrbuf, sx, y2, statuspics[4]);   /* civ-wasm: irrigation over WinCiv land */
             if (ter == 2 && !((7 * x + 11 * y) & 2))
                 sprite_draw(scrbuf, sx + 4, y2 + 4, colour_shield_tiles);
         } else {
