@@ -22,4 +22,5 @@ extern int civwasm_browser_saves;       /* --browser-saves: the page keeps the s
 #define WIDE_DX (view_cols / 2 - 7)
 #define WIDE_DY (view_rows / 2 - 6)
 extern void civwasm_skin_picture(int, char *);   /* skin.c: a picture loaded */
+extern void civwasm_skin_sprite(struct page *, int, int, int);  /* mgraphic.c: a sprite's skin alone */
 #endif
