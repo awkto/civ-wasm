@@ -203,3 +203,17 @@ off-screen unit; skip leaves out `map_center` and `anim_unit` (the unit is
 only redrawn where it lands, if in view) and the jump to off-screen
 automatic units. The view catches up (`own_unseen`) when such a unit next
 needs the player, and before a battle or hut it walks into.
+
+## Rail To, Auto Road, Auto Rail
+
+Rail To (Shift+T) is Road To with `civwasm_road_to` 2: `lay_needed` asks
+for railroad, so 'r' lays road and then rail on each tile; its cursor reads
+RAIL (`civwasm_road_cursor_cut` word 1). Auto Road (Shift+A) and Auto Rail
+(Shift+L) are `civwasm_auto_work` 'a' and 'l', answered by `auto_road_goal`
+(PATH.C): Kruskal over each own city's four nearest on the order's
+landmass; each link is walked by `link_step`, steps that always come closer
+to the far city (so at most 40), preferring tiles already done and the
+straight line, over land that takes a road and past no foreign city or
+unit; an unwalkable link is left out. The settlers go to the needed tile
+nearest them that no other auto settler has taken, and ask for orders when
+none is left. Rail To and Auto Rail need Railroad (tech 49).

@@ -66,6 +66,11 @@ The server holding the zip must allow cross-origin requests.
   Other terrain is left alone. Enemies don't interrupt them; when nothing
   is left to do they ask for orders. Activating them gives them back to
   you.
+- **Rail To (Shift+T), Auto Road (Shift+A), Auto Rail (Shift+L).** Rail To
+  is Road To laying railroad (road first where there is none). Auto Road
+  and Auto Rail link your cities on the settlers' landmass with the
+  shortest network of straight-ish roads or railroads, working the nearest
+  tile still missing; Rail To and Auto Rail need Railroad.
 - **Better Default Unit.** A setting: new cities start on the best
   defender you know (Phalanx, Musketeers, Riflemen, Mech. Inf.) instead of
   Militia until Gunpowder.

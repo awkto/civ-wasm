@@ -537,8 +537,9 @@ void setup_art(void)
     for (i = 0; i < 7; i++)
         statuspics[i] = cut_tile(1, i * 16, 32, 16, 16);
     {
-        extern int civwasm_road_cursor, civwasm_road_cursor_cut(int);
-        civwasm_road_cursor = civwasm_road_cursor_cut(statuspics[2]);   /* civ-wasm: Road To's cursor */
+        extern int civwasm_road_cursor, civwasm_rail_cursor, civwasm_road_cursor_cut(int, int);
+        civwasm_road_cursor = civwasm_road_cursor_cut(statuspics[2], 0);    /* civ-wasm: Road To's cursor */
+        civwasm_rail_cursor = civwasm_road_cursor_cut(statuspics[2], 1);    /* and Rail To's */
     }
     splashhand = mouse_cursor;
     for (i = 0; i < 8; i++)
