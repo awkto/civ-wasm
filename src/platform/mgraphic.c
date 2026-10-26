@@ -946,6 +946,27 @@ void sprite_draw(const struct page16 *pg, int16_t x, int16_t y, int16_t sprite)
     reciv_video_dirty();
 }
 
+/* civ-wasm: a rectangle of skin colour `colour` (the sheet's palette) over
+ * the skin layer alone, w x h page pixels: WinCiv's city screen colours,
+ * shown only with the skin. */
+void civwasm_skin_fill(const struct page16 *pg, int16_t x, int16_t y, int16_t w, int16_t h, int16_t colour)
+{
+    int32_t ax = x + pg->left, ay = y + pg->top, aw = w, ah = h;
+    uint8_t *skin;
+    if (!skin_on || colour < 0 || colour > 126)
+        return;
+    if (ax < 0) { aw += ax; ax = 0; }
+    if (ay < 0) { ah += ay; ay = 0; }
+    if (ax + aw > reciv_screen_w) aw = reciv_screen_w - ax;
+    if (ay + ah > reciv_screen_h) ah = reciv_screen_h - ay;
+    if (aw <= 0 || ah <= 0)
+        return;
+    skin = skin_make((uint16_t) pg->number & 7);
+    for (int32_t r = 2 * ay; r < 2 * (ay + ah); r++)
+        memset(skin + (size_t) r * SKW + 2 * ax, colour + 1, (size_t) (2 * aw));
+    reciv_video_dirty();
+}
+
 /* civ-wasm: a sprite's skin picture alone, over the skin layer, leaving
  * the page's own pixels as they are. MAP.C draws irrigation under the
  * terrain, where the DOS land shows it through its gaps; WinCiv's land

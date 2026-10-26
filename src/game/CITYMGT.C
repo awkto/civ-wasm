@@ -352,6 +352,7 @@ label_render_restart:
     if (mode == 1L) {
         unpack_garrison(city);
         rect_fill(scrbuf, 0, 0, 320, 200, 0);
+        civwasm_skin_fill(scrbuf, 0, 0, 320, 200, SKIN_FRAME);  /* civ-wasm: WinCiv colours */
         framed_panel(2, 1, 208, 21);
         scratch_i = 0;
         for (index_i = 1; index_i <= townbuf[city].size; index_i++) {
@@ -935,6 +936,7 @@ label_draw:
         draw_button(161, 106, 193, 114, "MAP", 9);
         draw_button(194, 106, 226, 114, "VIEW", 9);
         recolour_rect(scrbuf, city_view_mode * 33 + 96, 107, 32, 7, 9, 15);
+        civwasm_skin_fill(scrbuf, city_view_mode * 33 + 96, 107, 32, 7, 8);   /* civ-wasm: the chosen tab, white */
         switch (city_view_mode) {
         case 2:
             draw_minimap();
@@ -1016,6 +1018,7 @@ label_draw:
         draw_city_view(city, 100, happy_y_g, experts_f, 92);
         happy_y_g += 16;
         draw_line(100, happy_y_g - 2, 222, happy_y_g - 2, 1);
+        civwasm_skin_fill(scrbuf, 100, happy_y_g - 2, 123, 1, SKIN_FRAME);   /* civ-wasm */
     }
     town_happy_ones_num = city_revel_sums / 2;
     fit_citizens(city, experts_f);
@@ -1024,6 +1027,7 @@ label_draw:
         label_with_style(14, 208, happy_y_g + 4);
         happy_y_g += 16;
         draw_line(100, happy_y_g - 2, 222, happy_y_g - 2, 1);
+        civwasm_skin_fill(scrbuf, 100, happy_y_g - 2, 123, 1, SKIN_FRAME);   /* civ-wasm */
     }
     icon_x = 208;
     if (townbuf[city].buildings & 0x2000) {
@@ -1057,6 +1061,7 @@ label_draw:
         draw_city_view(city, 100, happy_y_g, experts_f, 92);
         happy_y_g += 16;
         draw_line(100, happy_y_g - 2, 222, happy_y_g - 2, 1);
+        civwasm_skin_fill(scrbuf, 100, happy_y_g - 2, 123, 1, SKIN_FRAME);   /* civ-wasm */
     }
     /* Up to three troops suppress unrest; republic/democracy penalize troops abroad. */
     icon_x = 208;
@@ -1101,6 +1106,7 @@ label_draw:
         draw_city_view(city, 100, happy_y_g, experts_f, 92);
         happy_y_g += 16;
         draw_line(100, happy_y_g - 2, 222, happy_y_g - 2, 1);
+        civwasm_skin_fill(scrbuf, 100, happy_y_g - 2, 123, 1, SKIN_FRAME);   /* civ-wasm */
     }
     scratch_i = town_happy_ones_num - town_unhappy_counts;
     if (civ_wonder(selected_owner, 2))
@@ -1119,6 +1125,7 @@ label_draw:
         draw_string("WONDERS", 190, happy_y_g + 5, 15);
         happy_y_g += 16;
         draw_line(100, happy_y_g - 2, 222, happy_y_g - 2, 1);
+        civwasm_skin_fill(scrbuf, 100, happy_y_g - 2, 123, 1, SKIN_FRAME);   /* civ-wasm */
     }
     if (!(rule_options & 2))
         town_happy_ones_num = town_unhappy_counts = 0;
@@ -1280,6 +1287,7 @@ label_support_restart:
         draw_x_l = cost_scale * scratch_i + (scale_i * 8 - 8) / scale_i;
         draw_y_k = ((cost_h - 1) / scale_i) * 8 + 8;
         rect_fill(scrbuf, 230, 99, draw_x_l + 3, draw_y_k + 19, 1);
+        civwasm_skin_fill(scrbuf, 230, 99, draw_x_l + 3, draw_y_k + 19, SKIN_FRAME);
         if (selected_owner == civnow) {
             draw_button(231, 106, 263, 114, (townbuf[city].status & 0x10) ? "AUTO." : "CHANGE", 9);
             draw_button(294, 106, 311, 114, "BUY", 9);
@@ -1298,6 +1306,7 @@ label_support_restart:
         scratch_i = clamp(80 / townbuf[city].size, 1, 8);
         draw_y_k = 80 / cost_scale;
         rect_fill(scrbuf, 2, 106, 91, cost_scale * draw_y_k + 12, 1);
+        civwasm_skin_fill(scrbuf, 2, 106, 91, cost_scale * draw_y_k + 12, SKIN_FRAME);
         draw_string("Food Storage", 8, 108, 15);
         tile_panel(3, 115, townbuf[city].size * scratch_i + 9, cost_scale * draw_y_k + 2);
         if (townbuf[city].buildings & 4)
@@ -1308,6 +1317,7 @@ label_support_restart:
         framed_panel(2, 23, 124, 65);
         draw_y_k = 25;
         rect_fill(scrbuf, 2, 23, 122, 9, 1);
+        civwasm_skin_fill(scrbuf, 2, 23, 122, 9, SKIN_FRAME);
         draw_string("City Resources", 8, draw_y_k, 15);
         draw_y_k += 8;
         for (item_b = 0; item_b < 3; item_b++) {
@@ -1432,6 +1442,7 @@ label_input:
                         if (townbuf[city].production >= 0)
                             civ_units_ordered[selected_owner][townbuf[city].production]++;
                         rect_fill(scrbuf, 230, 99, 90, 100, 0);
+                        civwasm_skin_fill(scrbuf, 230, 99, 90, 100, SKIN_FRAME);
                     } else {
                         goto label_render_restart;
                     }
@@ -2283,11 +2294,17 @@ void framed_panel(int x1, int y1, int x2, int y2)
     height = y2 - y1;
     tile_panel(x1, y1, width, height);
     draw_box(x1, y1, width, height, 1);
+    /* civ-wasm: WinCiv's dark red frame, with the skin */
+    civwasm_skin_fill(scrbuf, x1, y1, width + 1, 1, SKIN_FRAME);
+    civwasm_skin_fill(scrbuf, x1, y2, width + 1, 1, SKIN_FRAME);
+    civwasm_skin_fill(scrbuf, x1, y1, 1, height + 1, SKIN_FRAME);
+    civwasm_skin_fill(scrbuf, x2, y1, 1, height + 1, SKIN_FRAME);
 }
 
 void tile_panel(int x, int y, int width, int height)
 {
     int saved_width_o, dest_y_i, dest_x_j, tile_height_k, tile_width_d;
+    int panel_w = width, panel_h = height;      /* civ-wasm */
     if (!vga_modes)
         rect_fill(scrbuf, x, y, width, height, 9);
     else {
@@ -2307,6 +2324,7 @@ void tile_panel(int x, int y, int width, int height)
             height -= tile_height_k;
         } while (height > 0);
     }
+    civwasm_skin_fill(scrbuf, x, y, panel_w, panel_h, SKIN_PANEL);  /* civ-wasm: WinCiv's cream */
 }
 
 void draw_button(int x1, int y1, int x2, int y2, char *label, int color)
@@ -2319,6 +2337,14 @@ void draw_button(int x1, int y1, int x2, int y2, char *label, int color)
     draw_line(x1, y1, x1, y2, color < 8 ? color + 8 : 7);
     draw_line(x1 + 1, y2, x2, y2, color < 8 ? 8 : color - 8);
     draw_line(x2, y1, x2, y2, color < 8 ? 8 : color - 8);
+    if (color == 9) {
+        /* civ-wasm: WinCiv's grey buttons, with the skin */
+        civwasm_skin_fill(scrbuf, x1, y1, width + 1, height + 1, SKIN_GREY);
+        civwasm_skin_fill(scrbuf, x1, y1, width + 1, 1, 8);
+        civwasm_skin_fill(scrbuf, x1, y1, 1, height + 1, 8);
+        civwasm_skin_fill(scrbuf, x1, y2, width + 1, 1, 3);
+        civwasm_skin_fill(scrbuf, x2, y1, 1, height + 1, 3);
+    }
     draw_text(label, (x1 + x2) / 2 + 1, (y1 + y2) / 2 - 2, color ^ 8);
 }
 

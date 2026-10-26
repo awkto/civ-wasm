@@ -473,6 +473,11 @@ static int skin_frame(const uint32_t *palette, uint32_t offset)
             }
             base = palette[background[at]];
             if (text_mask[at] && !split_text) {
+                /* civ-wasm: light text on a cream city-screen panel is drawn dark. */
+                uint32_t sa = at + (uint32_t) (at / SW) * SW;
+                if (skin[2 * (size_t) sa] == RECIV_SKIN_PANEL + 1 &&
+                    (base >> 16 & 255) * 3 + (base >> 8 & 255) * 6 + (base & 255) > 1280)
+                    base = 0x101010;
                 out0[2 * x] = out0[2 * x + 1] = out1[2 * x] = out1[2 * x + 1] = base;
                 continue;
             }
