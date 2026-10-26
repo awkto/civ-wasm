@@ -202,7 +202,7 @@ rd:                            /* redraw map and units */
                     goto uc;
                 }
                 {
-                    if (jf < 128 && ((U.status & 0xc2) || U.goto_x != -1)) {
+                    if (jf < 128 && ((U.status & 0xc2) || U.goto_x != -1 || civwasm_auto_work[civ][jf])) {
                         ek = 'r';
                         if (U.status & 0x40)
                             ek = U.type != 0 ? 'm' : 'i';
@@ -373,7 +373,9 @@ ck:                            /* mouse click */
 cmd:
                 if (jf < 128) {
 uc:                            /* unit command */
-                    if (U.goto_x != -1)
+                    if (civwasm_auto_work[civ][jf])
+                        ek = auto_work_goal(civ, jf);   /* civ-wasm: Auto Irrigate, Auto Mine */
+                    else if (U.goto_x != -1)
                         ek = civwasm_road_to[civ][jf] ? road_to_goal(civ, jf) : unit_goal(civ, jf);     /* civ-wasm: Road To */
                     else
                         U.f8 = -1;
@@ -429,6 +431,19 @@ uc:                            /* unit command */
                             dl = jf & 127;
                             ke = 0;
                         }
+                        break;
+                    case 'I':
+                    case 'M':
+                        /* civ-wasm: Auto Irrigate, Auto Mine, around this tile (PATH.C) */
+                        if (U.type != 0) {
+                            human_msg("*SETTLERS");
+                            break;
+                        }
+                        civwasm_auto_work[civ][jf] = (char) (ek == 'I' ? 'i' : 'm');
+                        civwasm_auto_x[civ][jf] = (unsigned char) ku;
+                        civwasm_auto_y[civ][jf] = (unsigned char) jv;
+                        civwasm_road_to[civ][jf] = 0;
+                        U.goto_x = U.f8 = -1;
                         break;
                     case 'T':
                         /* civ-wasm: Road To, a GoTo that builds road on the way (PATH.C) */

@@ -175,3 +175,19 @@ cannot take a road (river without Bridge Building), and whenever another
 civilization's unit stands next to the settlers. The marks are written
 after the game's own data in the save (SAVE.C); a save without them loads
 with none, and the DOS game ignores the extra bytes.
+
+## Auto Irrigate, Auto Mine
+
+Shift+I and Shift+M (or the Orders menu) on settlers set
+`civwasm_auto_work[civ][unit]` to `i` or `m` and remember the tile as the
+centre (`civwasm_auto_x`, `civwasm_auto_y`, saved after the Road To marks).
+CONTROL.C then asks `auto_work_goal` (PATH.C) at every move. It keeps work
+under way, and otherwise picks the tile closest to the centre (then closest
+to the settlers) within 6 tiles, on the centre's landmass, seen by the
+player, without a foreign unit and not taken by other auto settlers, that
+the game's own `work_tile` would improve the same way: 1 irrigate
+(irrigable terrain with water next to it), 2 mine (Hills). It answers that
+order on the tile, a GoTo step towards it, or -1 with the order cleared
+when nothing is left. Since the choice is made again each time, every new
+irrigated tile lets irrigation reach further. Waking the settlers
+(`unit_reset`, the stack list, `kill_cb`) clears the order.

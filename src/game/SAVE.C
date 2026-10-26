@@ -443,9 +443,14 @@ void transfer_game(void)
     transfer_near((char *) &civ_flags_bits, 0x2);
     /* civ-wasm: Road To orders, after the game's own data; a save without
      * them loads with none. */
-    if (save_mode)
+    if (save_mode) {
         memset(civwasm_road_to, 0, sizeof civwasm_road_to);
+        memset(civwasm_auto_work, 0, sizeof civwasm_auto_work);
+    }
     transfer_near((char *) civwasm_road_to, sizeof civwasm_road_to);
+    transfer_near((char *) civwasm_auto_work, sizeof civwasm_auto_work);    /* and Auto Irrigate, Auto Mine */
+    transfer_near((char *) civwasm_auto_x, sizeof civwasm_auto_x);
+    transfer_near((char *) civwasm_auto_y, sizeof civwasm_auto_y);
 }
 
 /* Non-prototype ABI calls below; NOLINTBEGIN(clang-diagnostic-deprecated-non-prototype) */

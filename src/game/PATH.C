@@ -497,3 +497,85 @@ stop:
     civwasm_road_to[player][unit] = 0;
     return -1;
 }
+
+/* civ-wasm: Auto Irrigate (Shift+I) and Auto Mine (Shift+M). The settlers
+ * improve the tiles around where they got the order, nearest that place
+ * first, out to 6 tiles, on that landmass. The tiles are the game's own
+ * choice for computer players' settlers (CONTROL.C work_tile): Hills are
+ * mined, and Desert, Plains, Grassland and River are irrigated where water
+ * reaches them; Forest, Mountains, Swamp, Jungle, Tundra and Arctic are
+ * left alone, as are tiles already irrigated or mined and city tiles.
+ * The choice is made again at every move and every finished tile, so an
+ * irrigated tile opens the next ones. With nothing left to do, the
+ * settlers ask for orders. Enemies do not interrupt them. */
+char civwasm_auto_work[8][128];         /* 'i' or 'm', 0 none */
+unsigned char civwasm_auto_x[8][128], civwasm_auto_y[8][128];   /* where the order was given */
+
+extern int work_tile(int, int), region_key(int, int);
+extern char far map_visible_to[];
+
+static int wrap_dist(int a, int b)
+{
+    int d = abs(a - b);
+    return d > 40 ? 80 - d : d;
+}
+
+/* Another auto settler already works the tile or is on its way there. */
+static int auto_taken(int player, int unit, int x, int y)
+{
+    int i;
+    struct unit *o;
+    for (i = 0; i < 128; i++) {
+        o = &armydata[player][i];
+        if (i == unit || o->type != 0 || !civwasm_auto_work[player][i])
+            continue;
+        if ((o->x == x && o->y == y) || ((unsigned char) o->goto_x == x && (unsigned char) o->goto_y == y))
+            return 1;
+    }
+    return 0;
+}
+
+int auto_work_goal(int player, int unit)
+{
+    struct unit *u = &armydata[player][unit];
+    int order = civwasm_auto_work[player][unit], kind = order == 'i' ? 1 : 2;
+    int ax = civwasm_auto_x[player][unit], ay = civwasm_auto_y[player][unit];
+    int region = region_key(ax, ay), best = 9999, bx = -1, by = 0;
+    int dx, dy, x, y, d, owner;
+    /* Work under way goes on. */
+    if ((u->status & (kind == 1 ? 0x40 : 0x80)) && work_tile(u->x, u->y) == kind)
+        return order;
+    for (dy = -6; dy <= 6; dy++)
+        for (dx = -6; dx <= 6; dx++) {
+            x = wrap_x(ax + dx);
+            y = ay + dy;
+            if (y < 1 || y > 48 || !(map_visible_to[x * 50 + y] & (1 << player)))
+                continue;
+            if (terrain_at(x, y) == 10 || region_key(x, y) != region || work_tile(x, y) != kind)
+                continue;
+            owner = map_owner(x, y);
+            if ((owner != -1 && owner != player) || auto_taken(player, unit, x, y))
+                continue;
+            d = 16 * (abs(dx) > abs(dy) ? abs(dx) : abs(dy));
+            d += wrap_dist(u->x, x) > abs(u->y - y) ? wrap_dist(u->x, x) : abs(u->y - y);
+            if (d < best) {
+                best = d;
+                bx = x;
+                by = y;
+            }
+        }
+    if (bx == -1)
+        goto stop;
+    if (bx == u->x && by == u->y)
+        return order;
+    u->goto_x = (char) bx;
+    u->goto_y = (char) by;
+    d = unit_goal(player, unit);
+    if (d < 1 || d > 8)
+        goto stop;
+    return d;
+stop:
+    civwasm_auto_work[player][unit] = 0;
+    u->goto_x = u->f8 = -1;
+    return -1;
+}
