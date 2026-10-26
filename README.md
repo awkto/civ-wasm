@@ -53,7 +53,7 @@ The server holding the zip must allow cross-origin requests.
   civilizations' emissaries and autosave in the middle of a game, and saves
   and goes back to the start page to begin or continue another game.
   Shortcuts: Alt with - or _ zooms out, Alt with = or + zooms in, Alt with
-  ` ~ or * switches between the Windows and DOS map art.
+  ` ~ * or Backspace switches between the Windows and DOS map art.
 - **Road To (Shift+R).** A settlers' GoTo that builds road on every tile
   on its way, in the Orders menu below Build Road. The settlers walk over
   road already there and stop for orders at the target, before a river they
