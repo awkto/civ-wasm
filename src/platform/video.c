@@ -19,7 +19,6 @@ static SDL_Window *window;
 static SDL_Renderer *renderer;
 static SDL_Texture *texture;
 static SDL_Texture *scaled_texture;
-static int scaled_factor;
 static enum reciv_filter filter = RECIV_FILTER_HQ4X;
 enum reciv_text_filter {
     RECIV_TEXT_NEAREST, RECIV_TEXT_SHARP, RECIV_TEXT_BILINEAR
@@ -31,14 +30,14 @@ static uint32_t *filtered_pixels;
 static uint32_t *frame_pixels;
 static SDL_Texture *text_texture;
 static SDL_Texture *text_scaled_texture;
-static int text_scaled_factor, text_filter_failed;
+static int text_filter_failed;
 static uint32_t *text_pixels;
 static SDL_BlendMode text_blend_mode;
 static int filter_failed;
 /* civ-wasm: the WinCiv skin, composited at twice the screen's size. */
 static SDL_Texture *skin_texture, *skin_scaled_texture;
 static uint32_t *skin_pixels;
-static int skin_scaled_factor;
+static int layer_unit = 1;              /* 2 while the skin's 2x picture is shown */
 static uint16_t start_address;          /* CRTC start address, in 4-pixel units */
 static void text_clear(void);
 static int video_mode = 3;
@@ -164,7 +163,6 @@ void reciv_video_resize(void)
     skin_pixels = NULL;
     texture = text_texture = filtered_texture = scaled_texture = text_scaled_texture = NULL;
     skin_texture = skin_scaled_texture = NULL;
-    scaled_factor = text_scaled_factor = skin_scaled_factor = 0;
     screen_textures();
     dirty = 1;
 }
@@ -360,6 +358,57 @@ static void layout(void)
     view.y = (h - view.h) / 2;
 }
 
+/* civ-wasm: the sharp enlargement, the same for every layer so the DOS
+ * picture, the skin and the text blend at the same pixel edges: the
+ * multiple of layer_unit (the skin's 2x picture needs an even one) nearest
+ * the view's scale, at most 4096 pixels across the part shown. */
+static int sharp_factor(void)
+{
+    float sx = view.w / shown_w(), sy = view.h / shown_h(), s = sx < sy ? sx : sy;
+    int factor = (int) (s / layer_unit + 0.5f) * layer_unit;
+    if (factor < layer_unit)
+        factor = layer_unit;
+    while (factor > layer_unit && (shown_w() * factor > 4096 || shown_h() * factor > 4096))
+        factor -= layer_unit;
+    return factor;
+}
+
+/* Enlarge the shown part of src (unit texels per screen pixel) into
+ * *target at factor by nearest pixels;
+ * the target is then stretched linearly to the view. NULL if it failed.
+ * Scale modes are set here every time, never left from an earlier frame. */
+static SDL_Texture *sharp_stage(SDL_Texture *src, int unit, int factor, SDL_Texture **target,
+                                SDL_PixelFormat format, int text)
+{
+    float tw = 0, th = 0;
+    int w = shown_w() * factor, h = shown_h() * factor;
+    bool copied;
+    if (*target)
+        SDL_GetTextureSize(*target, &tw, &th);
+    if (!*target || (int) tw != w || (int) th != h) {
+        SDL_DestroyTexture(*target);
+        *target = SDL_CreateTexture(renderer, format, SDL_TEXTUREACCESS_TARGET, w, h);
+        if (!*target || !SDL_SetTextureScaleMode(*target, SDL_SCALEMODE_LINEAR) ||
+            (text && !SDL_SetTextureBlendMode(*target, text_blend_mode)))
+            return NULL;
+    }
+    if (!SDL_SetRenderTarget(renderer, *target))
+        return NULL;
+    SDL_FRect part = { 0, 0, (float) shown_w() * unit, (float) shown_h() * unit };
+    SDL_SetTextureScaleMode(src, SDL_SCALEMODE_NEAREST);
+    if (text) {
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+        SDL_RenderClear(renderer);
+        SDL_SetTextureBlendMode(src, SDL_BLENDMODE_NONE);
+    }
+    copied = SDL_RenderTexture(renderer, src, &part, NULL);
+    if (text)
+        SDL_SetTextureBlendMode(src, text_blend_mode);
+    if (!SDL_SetRenderTarget(renderer, NULL))
+        reciv_fatal("restore window render target: %s", SDL_GetError());
+    return copied ? *target : NULL;
+}
+
 /* Sharp bilinear: nearest-neighbour integer enlargement first, then linear
  * sampling for the remaining stretch (including the VGA's 4:3 correction).
  * This limits blending to pixel boundaries instead of blurring whole pixels.
@@ -380,39 +429,20 @@ static void present_graphics(void)
         }
     }
     if (filter == RECIV_FILTER_SHARP && !filter_failed) {
-        float sx = view.w / shown_w(), sy = view.h / shown_h();
-        int factor = (int) (sx < sy ? sx : sy);
-        factor = factor < 1 ? 1 : factor > 6 ? 6 : factor;
-        while (factor > 1 && (SW * factor > 4096 || SH * factor > 4096))
-            factor--;
-        if (!scaled_texture || factor != scaled_factor) {
-            SDL_DestroyTexture(scaled_texture);
-            scaled_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XRGB8888,
-                                               SDL_TEXTUREACCESS_TARGET, SW * factor, SH * factor);
-            scaled_factor = factor;
-            if (!scaled_texture || !SDL_SetTextureScaleMode(scaled_texture, SDL_SCALEMODE_LINEAR))
-                filter_failed = 1;
-        }
-        if (!filter_failed) {
-            if (SDL_SetRenderTarget(renderer, scaled_texture)) {
-                /* The opaque source covers the entire target, so no clear is needed. */
-                bool copied = SDL_RenderTexture(renderer, texture, NULL, NULL);
-                if (!SDL_SetRenderTarget(renderer, NULL))
-                    reciv_fatal("restore window render target: %s", SDL_GetError());
-                if (copied) {
-                    display = scaled_texture;
-                    display_factor = factor;
-                } else
-                    filter_failed = 1;
+        int factor = sharp_factor();
+        if (factor > 1) {
+            SDL_Texture *t = sharp_stage(texture, 1, factor, &scaled_texture, SDL_PIXELFORMAT_XRGB8888, 0);
+            if (t) {
+                display = t;
+                display_factor = factor;
             } else {
+                reciv_log("graphics filter unavailable; using nearest pixels: %s", SDL_GetError());
+                SDL_DestroyTexture(scaled_texture);
+                scaled_texture = NULL;
                 filter_failed = 1;
             }
-        }
-        if (filter_failed) {
-            reciv_log("graphics filter unavailable; using nearest pixels: %s", SDL_GetError());
-            SDL_DestroyTexture(scaled_texture);
-            scaled_texture = NULL;
-        }
+        } else
+            SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_LINEAR);
     }
     SDL_FRect part = { 0, 0, (float) shown_w() * display_factor, (float) shown_h() * display_factor };
     SDL_RenderTexture(renderer, display, &part, &view);
@@ -501,29 +531,16 @@ static void present_skin(void)
 {
     SDL_Texture *display = skin_texture;
     int display_factor = 2;
-    if (filter != RECIV_FILTER_NEAREST && filter != RECIV_FILTER_BILINEAR) {
-        float sx = view.w / shown_w(), sy = view.h / shown_h();
-        int factor = ((int) (sx < sy ? sx : sy)) & ~1;
-        while (factor > 2 && (SW * factor > 4096 || SH * factor > 4096))
-            factor -= 2;
-        if (factor > 2) {
-            if (!skin_scaled_texture || factor != skin_scaled_factor) {
-                SDL_DestroyTexture(skin_scaled_texture);
-                skin_scaled_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XRGB8888,
-                                                        SDL_TEXTUREACCESS_TARGET, SW * factor, SH * factor);
-                skin_scaled_factor = factor;
-                if (skin_scaled_texture)
-                    SDL_SetTextureScaleMode(skin_scaled_texture, SDL_SCALEMODE_LINEAR);
-            }
-            if (skin_scaled_texture && SDL_SetRenderTarget(renderer, skin_scaled_texture)) {
-                bool copied = SDL_RenderTexture(renderer, skin_texture, NULL, NULL);
-                if (!SDL_SetRenderTarget(renderer, NULL))
-                    reciv_fatal("restore window render target: %s", SDL_GetError());
-                if (copied) {
-                    display = skin_scaled_texture;
-                    display_factor = factor;
-                }
-            }
+    if (filter == RECIV_FILTER_NEAREST || filter == RECIV_FILTER_BILINEAR)
+        SDL_SetTextureScaleMode(skin_texture, filter == RECIV_FILTER_BILINEAR ?
+                                SDL_SCALEMODE_LINEAR : SDL_SCALEMODE_NEAREST);
+    else {
+        int factor = sharp_factor();
+        SDL_Texture *t = factor > 2 ?
+            sharp_stage(skin_texture, 2, factor, &skin_scaled_texture, SDL_PIXELFORMAT_XRGB8888, 0) : NULL;
+        if (t) {
+            display = t;
+            display_factor = factor;
         } else
             SDL_SetTextureScaleMode(skin_texture, SDL_SCALEMODE_LINEAR);
     }
@@ -536,44 +553,20 @@ static void present_graphics_text(void)
     SDL_Texture *display = text_texture;
     int display_factor = 1;
     if (text_filter == RECIV_TEXT_SHARP && !text_filter_failed) {
-        float sx = view.w / shown_w(), sy = view.h / shown_h();
-        int factor = (int) (sx < sy ? sx : sy);
-        factor = factor < 1 ? 1 : factor > 6 ? 6 : factor;
-        while (factor > 1 && (SW * factor > 4096 || SH * factor > 4096))
-            factor--;
-        if (!text_scaled_texture || factor != text_scaled_factor) {
-            SDL_DestroyTexture(text_scaled_texture);
-            text_scaled_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
-                SDL_TEXTUREACCESS_TARGET, SW * factor, SH * factor);
-            text_scaled_factor = factor;
-            if (!text_scaled_texture ||
-                !SDL_SetTextureScaleMode(text_scaled_texture, SDL_SCALEMODE_LINEAR) ||
-                !SDL_SetTextureBlendMode(text_scaled_texture, text_blend_mode))
-                text_filter_failed = 1;
-        }
-        if (!text_filter_failed) {
-            if (SDL_SetRenderTarget(renderer, text_scaled_texture)) {
-                SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
-                SDL_RenderClear(renderer);
-                SDL_SetTextureBlendMode(text_texture, SDL_BLENDMODE_NONE);
-                bool copied = SDL_RenderTexture(renderer, text_texture, NULL, NULL);
-                SDL_SetTextureBlendMode(text_texture, text_blend_mode);
-                if (!SDL_SetRenderTarget(renderer, NULL))
-                    reciv_fatal("restore window render target: %s", SDL_GetError());
-                if (copied) {
-                    display = text_scaled_texture;
-                    display_factor = factor;
-                } else
-                    text_filter_failed = 1;
+        int factor = sharp_factor();
+        if (factor > 1) {
+            SDL_Texture *t = sharp_stage(text_texture, 1, factor, &text_scaled_texture, SDL_PIXELFORMAT_ARGB8888, 1);
+            if (t) {
+                display = t;
+                display_factor = factor;
             } else {
+                reciv_log("sharp text filter unavailable; using nearest pixels: %s", SDL_GetError());
+                SDL_DestroyTexture(text_scaled_texture);
+                text_scaled_texture = NULL;
                 text_filter_failed = 1;
             }
-        }
-        if (text_filter_failed) {
-            reciv_log("sharp text filter unavailable; using nearest pixels: %s", SDL_GetError());
-            SDL_DestroyTexture(text_scaled_texture);
-            text_scaled_texture = NULL;
-        }
+        } else
+            SDL_SetTextureScaleMode(text_texture, SDL_SCALEMODE_LINEAR);
     }
     SDL_FRect part = { 0, 0, (float) shown_w() * display_factor, (float) shown_h() * display_factor };
     SDL_RenderTexture(renderer, display, &part, &view);
@@ -624,9 +617,11 @@ void reciv_video_present(int force)
         for (int i = 0; i < pixels; ++i)
             frame_pixels[i] = palette[src[i]];
     }
-    if (skin_frame(palette, offset))
+    layer_unit = 1;
+    if (skin_frame(palette, offset)) {
+        layer_unit = 2;
         present_skin();
-    else {
+    } else {
         SDL_UpdateTexture(texture, NULL, frame_pixels, SW * (int) sizeof(uint32_t));
         present_graphics();
     }
