@@ -1043,6 +1043,54 @@ void civwasm_skin_recolour(const struct page16 *pg, int16_t x, int16_t y, int16_
     reciv_video_dirty();
 }
 
+/* civ-wasm: a dialog's chosen line over WinCiv's backdrop. The backdrop
+ * is skin colours, which the dialog's recolour_rect (grey to cyan) cannot
+ * reach: on = 1 keeps the line's skin and paints it the DOS cyan, on = 0
+ * puts it back. One line at a time. */
+static uint8_t *held_skin;
+static int32_t held_x, held_y, held_w, held_h;
+static uint16_t held_page;
+
+void civwasm_skin_highlight(const struct page16 *pg, int16_t x, int16_t y, int16_t w, int16_t h, int16_t on)
+{
+    uint16_t page = (uint16_t) pg->number & 7;
+    uint8_t *skin = skin_get(page);
+    int32_t ax = x + pg->left, ay = y + pg->top;
+    if (!skin)
+        return;
+    if (!on) {
+        if (!held_skin || held_page != page || held_x != ax || held_y != ay)
+            return;
+        for (int32_t r = 0; r < 2 * held_h; r++)
+            memcpy(skin + (size_t) (2 * held_y + r) * SKW + 2 * held_x, held_skin + (size_t) r * 2 * held_w, (size_t) (2 * held_w));
+        free(held_skin);
+        held_skin = NULL;
+        reciv_video_dirty();
+        return;
+    }
+    if (ax < 0 || ay < 0 || w <= 0 || h <= 0)
+        return;
+    if (ax + w > reciv_screen_w)
+        w = (int16_t) (reciv_screen_w - ax);
+    if (ay + h > reciv_screen_h)
+        h = (int16_t) (reciv_screen_h - ay);
+    if (w <= 0 || h <= 0)
+        return;
+    free(held_skin);
+    held_skin = malloc((size_t) w * h * 4);
+    if (!held_skin)
+        return;
+    held_page = page, held_x = ax, held_y = ay, held_w = w, held_h = h;
+    for (int32_t r = 0; r < 2 * h; r++) {
+        uint8_t *row = skin + (size_t) (2 * ay + r) * SKW + 2 * ax;
+        memcpy(held_skin + (size_t) r * 2 * w, row, (size_t) (2 * w));
+        for (int32_t c = 0; c < 2 * w; c++)
+            if (row[c] && row[c] < 128)
+                row[c] = (uint8_t) (128 + 11);
+    }
+    reciv_video_dirty();
+}
+
 /* civ-wasm: a sprite's skin picture alone, over the skin layer, leaving
  * the page's own pixels as they are. MAP.C draws irrigation under the
  * terrain, where the DOS land shows it through its gaps; WinCiv's land
