@@ -97,6 +97,7 @@ extern int in_view(int, int);
 #define U armydata[civ][jf]
 static int road_pending;
 static int own_unseen;          /* civ-wasm: the active unit moved without being shown */        /* civ-wasm: the GoTo being chosen is a Road To */
+static int click_step = -1;     /* civ-wasm: civ * 128 + unit given a one-tile GoTo by a click */
 /* ai_turn is too large for the post-optimizer (C4063); its exact code depends
    on the compiler memory taken by identifiers it references. Keep its labels,
    locals and the globals it names short, and verify after any rename. */
@@ -299,6 +300,7 @@ rd:                            /* redraw map and units */
                             U.goto_x = oq;
                             U.goto_y = mc;
                             civwasm_road_to[civ][jf] = 0;
+                            click_step = civ * 128 + jf;   /* civ-wasm: a move the player made, shown as one */
                             U.f8 = -1;
                             mse_held = 0;
                             ig = 0;
@@ -394,7 +396,8 @@ ck:                            /* mouse click */
 cmd:
                 if (jf < 128) {
 uc:                            /* unit command */
-                    civwasm_auto_step = civwasm_auto_work[civ][jf] || U.goto_x != -1;     /* civ-wasm: not the player's own move */
+                    civwasm_auto_step = civwasm_auto_work[civ][jf] || (U.goto_x != -1 && click_step != civ * 128 + jf);     /* civ-wasm: not the player's own move */
+                    click_step = -1;
                     if (civwasm_auto_work[civ][jf] == 'a' || civwasm_auto_work[civ][jf] == 'l' ||
                         civwasm_auto_work[civ][jf] == 'A' || civwasm_auto_work[civ][jf] == 'L')
                         ek = auto_road_goal(civ, jf);   /* civ-wasm: Auto Road, Auto Rail */

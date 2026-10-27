@@ -152,11 +152,14 @@ int menu_core(char *text, int x, int y, int mode)
         if (selected_e != prev) {
             mouse_off();
             if (prev != -1) {
+                civwasm_skin_highlight(scrbuf, x + 3, (prev + entry_first) * line_height + y + 4, linewide + 5, highlight_height_o, 0);   /* civ-wasm */
                 recolour_rect(scrbuf, x + 3, (prev + entry_first) * line_height + y + 4, linewide + 5, highlight_height_o, 11, foreground_d);
                 if (background_o != -1)
                     recolour_rect(scrbuf, x + 3, (prev + entry_first) * line_height + y + 4, linewide + 5, highlight_height_o, 3, background_o);
             }
             if (selected_e != -1) {
+                if (foreground_d == 7)
+                    civwasm_skin_highlight(scrbuf, x + 3, (selected_e + entry_first) * line_height + y + 4, linewide + 5, highlight_height_o, 1);   /* civ-wasm: over WinCiv's backdrop too */
                 recolour_rect(scrbuf, x + 3, (selected_e + entry_first) * line_height + y + 4, linewide + 5, highlight_height_o, foreground_d, 11);
                 if (background_o != -1)
                     recolour_rect(scrbuf, x + 3, (selected_e + entry_first) * line_height + y + 4, linewide + 5, highlight_height_o, background_o, 3);
