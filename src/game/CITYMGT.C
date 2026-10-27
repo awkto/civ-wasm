@@ -1586,8 +1586,10 @@ label_after_tabs:;
                 do {
                     do {
                         recolour_rect(scrbuf, 252, (choice_f + wonders_o) * 6 + 3, 56, 7, 9, 1);
+                        civwasm_skin_recolour(scrbuf, 252, (choice_f + wonders_o) * 6 + 3, 56, 7, SKIN_PANEL, 128 + 9);  /* civ-wasm: WinCiv's cream blinks too */
                         flip(10);
                         recolour_rect(scrbuf, 252, (choice_f + wonders_o) * 6 + 3, 56, 7, 1, 9);
+                        civwasm_skin_recolour(scrbuf, 252, (choice_f + wonders_o) * 6 + 3, 56, 7, 128 + 9, SKIN_PANEL);
                         flip(10);
                     } while (kbhit() == 0);
                     draw_y_k = key_cmd();
