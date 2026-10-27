@@ -93,7 +93,7 @@ void game_menu_a(void)
 
     if (!turn_tick)
         dialog_dim = 0x10;
-    strcpy(msgtext, " Tax Rate\n Luxuries Rate\n FindCity\n Options\n Save Game\n REVOLUTION!\n \n Retire\n QUIT to DOS\n");
+    strcpy(msgtext, " Tax Rate \217=\n Luxuries Rate \217-\n FindCity \217?\n Options\n Save Game \217S\n REVOLUTION!\n \n Retire\n QUIT to DOS \217Alt-Q\n");    /* civ-wasm: keys shown */
     if (game_flags & 0x100)
         strcat(msgtext, " View Replay\n");
     choice_h = menu_choose(msgtext, 0x10, 8);
@@ -225,7 +225,7 @@ void unit_orders_menu(int p, int u)
     }
     if (utypes[unit_tab[p][u].type].domain == 0)
         keybuf[pos++] = 'f';
-    strcat(msgtext, " Wait \217w\n Sentry \217s\n GoTo\n");
+    strcat(msgtext, " Wait \217w\n Sentry \217s\n GoTo \217g\n");
     keybuf[pos++] = 'w';
     keybuf[pos++] = 's';
     keybuf[pos++] = 'g';
