@@ -66,13 +66,17 @@ The server holding the zip must allow cross-origin requests.
   tiles: irrigation on Desert, Plains, Grassland and River wherever water
   reaches (each new irrigated tile lets the next one in), mines on Hills.
   Other terrain is left alone. Enemies don't interrupt them; when nothing
-  is left to do they ask for orders. Activating them gives them back to
+  is left to do they ask for orders. Auto Mine given again where no Hills
+  are left is level 2: it mines the Mountains around. Activating them gives them back to
   you.
 - **Rail To (Shift+T), Auto Road (Shift+A), Auto Rail (Shift+L).** Rail To
   is Road To laying railroad (road first where there is none). Auto Road
   and Auto Rail link your cities on the settlers' landmass with the
   shortest network of straight-ish roads or railroads, working the nearest
-  tile still missing; Rail To and Auto Rail need Railroad.
+  tile still missing, then ask for orders. Given again on a landmass whose
+  network is built, they go to level 2: more direct links between each city
+  and its nearest neighbours (up to six, within 12 tiles), so there are
+  several ways between cities. Rail To and Auto Rail need Railroad.
 - **Better Default Unit.** A setting: new cities start on the best
   defender you know (Phalanx, Musketeers, Riflemen, Mech. Inf.) instead of
   Militia until Gunpowder.

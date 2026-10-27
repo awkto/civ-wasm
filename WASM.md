@@ -191,7 +191,9 @@ the game's own `work_tile` would improve the same way: 1 irrigate
 (irrigable terrain with water next to it), 2 mine (Hills). It answers that
 order on the tile, a GoTo step towards it, or -1 with the order cleared
 when nothing is left. Since the choice is made again each time, every new
-irrigated tile lets irrigation reach further. Waking the settlers
+irrigated tile lets irrigation reach further. Shift+M where
+`auto_work_goal` finds nothing gives level 2, `n`: Mountains (terrain 5)
+without a mine, which `work_tile` leaves alone. Waking the settlers
 (`unit_reset`, the stack list, `kill_cb`) clears the order.
 
 ## Your automatic moves
@@ -212,10 +214,14 @@ Rail To (Shift+T) is Road To with `civwasm_road_to` 2: `lay_needed` asks
 for railroad, so 'r' lays road and then rail on each tile; its cursor reads
 RAIL (`civwasm_road_cursor_cut` word 1). Auto Road (Shift+A) and Auto Rail
 (Shift+L) are `civwasm_auto_work` 'a' and 'l', answered by `auto_road_goal`
-(PATH.C): Kruskal over each own city's four nearest on the order's
-landmass; each link is walked by `link_step`, steps that always come closer
+(PATH.C): Kruskal over each own city's six nearest on the order's
+landmass. Given where that network is built (CONTROL.C asks
+`auto_road_goal` at the order), they are 'A' and 'L', level 2: after the
+network, every other of those links within 12 tiles. Each link is walked by `link_step`, steps that always come closer
 to the far city (so at most 40), preferring tiles already done and the
 straight line, over land that takes a road and past no foreign city or
 unit; an unwalkable link is left out. The settlers go to the needed tile
 nearest them that no other auto settler has taken, and ask for orders when
-none is left. Rail To and Auto Rail need Railroad (tech 49).
+none is left. Rail To and Auto Rail need Railroad (tech 49). An auto
+settler held by a zone of control waits for the next turn instead of
+cancelling.

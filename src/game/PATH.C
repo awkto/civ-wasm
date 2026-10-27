@@ -519,8 +519,11 @@ stop:
  * left alone, as are tiles already irrigated or mined and city tiles.
  * The choice is made again at every move and every finished tile, so an
  * irrigated tile opens the next ones. With nothing left to do, the
- * settlers ask for orders. Enemies do not interrupt them. */
-char civwasm_auto_work[8][128];         /* 'i' or 'm', 0 none */
+ * settlers ask for orders. Enemies do not interrupt them.
+ *
+ * Auto Mine given where nothing is left to mine is level 2 ('n'): it mines
+ * the Mountains around, which the land's own rule leaves alone. */
+char civwasm_auto_work[8][128];         /* 'i', 'm', 'n' (Mountains), 'a', 'l', 'A', 'L' (level 2); 0 none */
 unsigned char civwasm_auto_x[8][128], civwasm_auto_y[8][128];   /* where the order was given */
 
 extern int work_tile(int, int), region_key(int, int);
@@ -547,23 +550,31 @@ static int auto_taken(int player, int unit, int x, int y)
     return 0;
 }
 
+/* The tile is one this order works. */
+static int auto_wanted(int order, int x, int y)
+{
+    if (order == 'n')
+        return terrain_at(x, y) == 5 && !(map_flags(x, y) & 4);
+    return work_tile(x, y) == (order == 'i' ? 1 : 2);
+}
+
 int auto_work_goal(int player, int unit)
 {
     struct unit *u = &armydata[player][unit];
-    int order = civwasm_auto_work[player][unit], kind = order == 'i' ? 1 : 2;
+    int order = civwasm_auto_work[player][unit], kind = order == 'i' ? 1 : 2, key = kind == 1 ? 'i' : 'm';
     int ax = civwasm_auto_x[player][unit], ay = civwasm_auto_y[player][unit];
     int region = region_key(ax, ay), best = 9999, bx = -1, by = 0;
     int dx, dy, x, y, d, owner;
     /* Work under way goes on. */
-    if ((u->status & (kind == 1 ? 0x40 : 0x80)) && work_tile(u->x, u->y) == kind)
-        return order;
+    if ((u->status & (kind == 1 ? 0x40 : 0x80)) && auto_wanted(order, u->x, u->y))
+        return key;
     for (dy = -6; dy <= 6; dy++)
         for (dx = -6; dx <= 6; dx++) {
             x = wrap_x(ax + dx);
             y = ay + dy;
             if (y < 1 || y > 48 || !(map_visible_to[x * 50 + y] & (1 << player)))
                 continue;
-            if (terrain_at(x, y) == 10 || region_key(x, y) != region || work_tile(x, y) != kind)
+            if (terrain_at(x, y) == 10 || region_key(x, y) != region || !auto_wanted(order, x, y))
                 continue;
             owner = map_owner(x, y);
             if ((owner != -1 && owner != player) || auto_taken(player, unit, x, y))
@@ -579,7 +590,7 @@ int auto_work_goal(int player, int unit)
     if (bx == -1)
         goto stop;
     if (bx == u->x && by == u->y)
-        return order;
+        return key;
     u->goto_x = (char) bx;
     u->goto_y = (char) by;
     d = unit_goal(player, unit);
@@ -595,7 +606,11 @@ stop:
 /* civ-wasm: Auto Road (Shift+A) and Auto Rail (Shift+L): settlers link the
  * player's cities on the landmass where they got the order with road (or
  * railroad, the road first). The links are a shortest network (Kruskal
- * over each city's four nearest cities); each link is a straight-ish line
+ * over each city's six nearest cities); once that is built, every other
+ * link to those six within 12 tiles, for more ways between the cities:
+ * level 2 ('A', 'L'), which the order takes when given on a landmass whose
+ * shortest network is already built.
+ * Each link is a straight-ish line
  * of steps that always come closer to the far city, over land that can
  * take a road and past no foreign city or unit. A link that cannot be
  * walked so is left out. The settlers work the tile nearest to them that
@@ -652,12 +667,13 @@ static int link_root(int *parent, int i)
 
 int auto_road_goal(int player, int unit)
 {
-    static int cx[128], cy[128], parent[128], ea[512], eb[512], el[512];
+    static int cx[128], cy[128], parent[128], ea[768], eb[768], el[768];
     struct unit *u = &armydata[player][unit];
-    int rail = civwasm_auto_work[player][unit] == 'l' && has_tech(player, 49);
+    int order = civwasm_auto_work[player][unit], levels = order == 'A' || order == 'L' ? 2 : 1;
+    int rail = (order == 'l' || order == 'L') && has_tech(player, 49);
     int region = region_key(civwasm_auto_x[player][unit], civwasm_auto_y[player][unit]);
-    int n = 0, edges = 0, i, j, k, a, b, d, x, y, steps, bx = -1, by = 0, best = 32767;
-    int near_j[4], near_d[4];
+    int n = 0, edges = 0, i, j, k, a, b, d, x, y, steps, bx = -1, by = 0, best = 32767, pass;
+    int near_j[6], near_d[6];
     if ((u->status & 2) && lay_needed(u->x, u->y, rail) && road_ok(player, u->x, u->y))
         return 'r';             /* work under way goes on */
     for (i = 0; i < 128; i++)
@@ -667,24 +683,24 @@ int auto_road_goal(int player, int unit)
             parent[n] = n;
             n++;
         }
-    /* Each city's four nearest, by length, shortest first. */
+    /* Each city's six nearest, by length, shortest first. */
     for (i = 0; i < n; i++) {
-        for (k = 0; k < 4; k++)
+        for (k = 0; k < 6; k++)
             near_j[k] = -1, near_d[k] = 32767;
         for (j = 0; j < n; j++) {
             if (j == i)
                 continue;
             d = cheb(cx[i], cy[i], cx[j], cy[j]);
-            for (k = 0; k < 4 && d >= near_d[k]; k++)
+            for (k = 0; k < 6 && d >= near_d[k]; k++)
                 ;
-            if (k == 4)
+            if (k == 6)
                 continue;
-            for (a = 3; a > k; a--)
+            for (a = 5; a > k; a--)
                 near_j[a] = near_j[a - 1], near_d[a] = near_d[a - 1];
             near_j[k] = j;
             near_d[k] = d;
         }
-        for (k = 0; k < 4 && near_j[k] != -1 && edges < 512; k++) {
+        for (k = 0; k < 6 && near_j[k] != -1 && edges < 768; k++) {
             for (a = edges; a > 0 && el[a - 1] > near_d[k]; a--)
                 ea[a] = ea[a - 1], eb[a] = eb[a - 1], el[a] = el[a - 1];
             ea[a] = i;
@@ -693,11 +709,13 @@ int auto_road_goal(int player, int unit)
             edges++;
         }
     }
+    /* Pass 0 the shortest network, pass 1 (when that is built) the rest. */
+    for (pass = 0; pass < levels && bx == -1; pass++)
     for (k = 0; k < edges; k++) {
         int lbx = -1, lby = 0, lbest = 32767;
         a = ea[k];
         b = eb[k];
-        if (link_root(parent, a) == link_root(parent, b))
+        if (pass == 0 ? link_root(parent, a) == link_root(parent, b) : el[k] > 12)
             continue;
         x = cx[a];
         y = cy[a];
@@ -718,7 +736,8 @@ int auto_road_goal(int player, int unit)
         }
         if (!(x == cx[b] && y == cy[b]))
             continue;           /* not walkable: left out */
-        parent[link_root(parent, a)] = link_root(parent, b);
+        if (pass == 0)
+            parent[link_root(parent, a)] = link_root(parent, b);
         if (lbx != -1 && lbest < best) {
             best = lbest;
             bx = lbx;
