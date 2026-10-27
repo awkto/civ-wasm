@@ -395,7 +395,8 @@ cmd:
                 if (jf < 128) {
 uc:                            /* unit command */
                     civwasm_auto_step = civwasm_auto_work[civ][jf] || U.goto_x != -1;     /* civ-wasm: not the player's own move */
-                    if (civwasm_auto_work[civ][jf] == 'a' || civwasm_auto_work[civ][jf] == 'l')
+                    if (civwasm_auto_work[civ][jf] == 'a' || civwasm_auto_work[civ][jf] == 'l' ||
+                        civwasm_auto_work[civ][jf] == 'A' || civwasm_auto_work[civ][jf] == 'L')
                         ek = auto_road_goal(civ, jf);   /* civ-wasm: Auto Road, Auto Rail */
                     else if (civwasm_auto_work[civ][jf])
                         ek = auto_work_goal(civ, jf);   /* civ-wasm: Auto Irrigate, Auto Mine */
@@ -474,6 +475,15 @@ uc:                            /* unit command */
                         civwasm_auto_x[civ][jf] = (unsigned char) ku;
                         civwasm_auto_y[civ][jf] = (unsigned char) jv;
                         civwasm_road_to[civ][jf] = 0;
+                        U.goto_x = U.f8 = -1;
+                        /* civ-wasm: nothing left for Auto Road, Auto Rail or Auto Mine
+                         * here: the order's level 2 */
+                        if ((ek == 'A' || ek == 'L' || ek == 'M') &&
+                            (ek == 'M' ? auto_work_goal(civ, jf) : auto_road_goal(civ, jf)) == -1) {
+                            civwasm_auto_work[civ][jf] = (char) (ek == 'M' ? 'n' : ek);
+                            civwasm_auto_x[civ][jf] = (unsigned char) ku;
+                            civwasm_auto_y[civ][jf] = (unsigned char) jv;
+                        }
                         U.goto_x = U.f8 = -1;
                         break;
                     case 'T':
@@ -795,6 +805,10 @@ mv:                            /* move unit */
                         qo = map_stack(oq, mc);
                         if (utypes[U.type].domain == 0) {
                             if (qo == -1 && if_open(civ, ku, jv) != 0 && if_open(civ, oq, mc) != 0 && U.type < 26 && iw != 10) {
+                                if (civwasm_auto_work[civ][jf]) {
+                                    U.moves = 0;        /* civ-wasm: an Auto order waits, and tries again next turn */
+                                    break;
+                                }
                                 if (civ == civnow)
                                     sound(37);
                                 if (debug & 1)
