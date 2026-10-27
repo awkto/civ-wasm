@@ -187,6 +187,40 @@ int16_t civwasm_real_ticks(int16_t ticks)
     return (int16_t) ((ticks * reciv_anim_speed + 5) / 10);
 }
 
+/* A unit's slide (UNITS.C anim_unit) steps by the game's clock. Where the
+ * browser shows frames less often than the clock ticks (Chromium with a
+ * large window on some systems), the whole slide could pass between two
+ * shown frames. Each step marks the screen as drawn, and after its wait
+ * gives the browser up to 50 ms to show it. */
+#ifdef __EMSCRIPTEN__
+EM_JS(int, civwasm_frames_shown, (void), {
+    if (!Module.civwasmFrames) {
+        Module.civwasmFrames = 1;
+        const count = () => { Module.civwasmFrames++; requestAnimationFrame(count); };
+        requestAnimationFrame(count);
+    }
+    return Module.civwasmFrames;
+});
+#endif
+static int frame_mark;
+
+void civwasm_step_drawn(void)
+{
+#ifdef __EMSCRIPTEN__
+    reciv_poll();
+    frame_mark = civwasm_frames_shown();
+#endif
+}
+
+void civwasm_step_shown(void)
+{
+#ifdef __EMSCRIPTEN__
+    uint64_t until = reciv_clock_ns() + 50000000ull;
+    while (civwasm_frames_shown() == frame_mark && reciv_clock_ns() < until)
+        emscripten_sleep(1);
+#endif
+}
+
 /* ----------------------------------------------------------- autosave */
 
 int civwasm_autosave_seconds;           /* 0: off (--autosave SECONDS, or the page's settings) */

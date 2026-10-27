@@ -903,7 +903,9 @@ draw_frame:;
             do {
                 offset = direction * 2;
                 label_with_style((signed char) armydata[group][index].type + (group << 5) + 64, screen_x + *(int *) ((char *) spiral_x + offset) * frame + 1, screen_y + *(int *) ((char *) spiral_y + offset) * frame + 1);
+                civwasm_step_drawn();     /* civ-wasm: each step shown */
                 flip(1);
+                civwasm_step_shown();
                 blit(back_page, screen_x + *(int *) ((char *) spiral_x + offset) * frame, screen_y + *(int *) ((char *) spiral_y + offset) * frame, 16, 16, scrbuf, screen_x + *(int *) ((char *) spiral_x + offset) * frame, screen_y + *(int *) ((char *) spiral_y + offset) * frame);
                 frame += (group != civnow ? civwasm_enemy_moves : civwasm_auto_step && civwasm_own_moves) ? 4 : 1;    /* civ-wasm: fast enemy (or own automatic) moves */
             } while (frame <= 16);

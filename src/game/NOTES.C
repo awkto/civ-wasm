@@ -78,7 +78,7 @@ void advice(int civ, int idx)
             good_ = 0;
     }
     if (good_) {
-        reveal(civnow, armydata[civ][idx].x - 7 - WIDE_DX, armydata[civ][idx].y - 6 - WIDE_DY);
+        map_center(civnow, armydata[civ][idx].x, armydata[civ][idx].y);    /* civ-wasm: no jump to centre it, only when near the edge */
         notice_a("*BUILDCITY");
         return;
     }
