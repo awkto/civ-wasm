@@ -107,6 +107,12 @@ CIVWASM_EXPORT void civwasm_set_refuse_emissaries(int on)
     civwasm_refuse_emissaries = (int16_t) !!on;
 }
 
+CIVWASM_EXPORT void civwasm_set_no_barbarians(int on)
+{
+    extern int16_t civwasm_no_barbarians;
+    civwasm_no_barbarians = (int16_t) !!on;
+}
+
 CIVWASM_EXPORT void civwasm_set_better_default(int on)
 {
     extern int16_t civwasm_better_default;

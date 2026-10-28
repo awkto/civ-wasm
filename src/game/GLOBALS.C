@@ -130,6 +130,7 @@ int civwasm_rail_cursor;                /* civ-wasm: and Rail To's */
 int civwasm_own_moves;                  /* civ-wasm: --own-moves (WIDE.H) */
 int civwasm_auto_step;                  /* civ-wasm: the move under way comes from GoTo or an automatic order */
 int civwasm_better_default;             /* civ-wasm: --better-default-unit (WIDE.H) */
+int civwasm_no_barbarians;              /* civ-wasm: --no-barbarians (WIDE.H) */
 int statuspics[320];            /* sprites cut from the sprite sheet; GLOBALS.H names the parts */
 int saved_found;                /* mask of saved game slots present */
 union REGS bios_call_reg_block_io;      /* registers for BIOS calls */

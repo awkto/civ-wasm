@@ -403,7 +403,7 @@ void uprising(void)
 {
     int p, t, e, f, w, g, h, x, count, i, y, k, dx, l;
 
-    if ((5 - cur_tier) * 30 > turn_tick)
+    if ((5 - cur_tier) * 30 > turn_tick || civwasm_no_barbarians)  /* civ-wasm: barbarians off */
         return;
     if (!(((char) turn_tick + 1) & 7) && !(advance_owners[0x74] & 7)) {
         do {

@@ -75,7 +75,8 @@ static void usage(void)
           "  --skin-hidden: load the --skin but show the DOS map art\n"
           "  --no-city-blink: cities needing a new build don't blink on the map\n"
           "  --refuse-emissaries: say No to other civilizations' emissaries without asking\n"
-          "  --better-default-unit: new cities build the best defender, not Militia\n", stderr);
+          "  --better-default-unit: new cities build the best defender, not Militia\n"
+          "  --no-barbarians: no barbarian raids, uprisings or hordes from huts\n", stderr);
     exit(1);
 }
 
@@ -162,6 +163,10 @@ int main(int argc, char **argv)
             /* civ-wasm: CITY.C starts new cities on the best defender. */
             extern int16_t civwasm_better_default;
             civwasm_better_default = 1;
+        } else if (!strcmp(argv[i], "--no-barbarians")) {
+            /* civ-wasm: TURN.C's uprisings and UNITS.C's huts make no barbarians. */
+            extern int16_t civwasm_no_barbarians;
+            civwasm_no_barbarians = 1;
         } else if (!strcmp(argv[i], "--xray")) {
             /* civ-wasm: the game's debug view, the whole map (for tests). */
             extern int16_t xray_on;
