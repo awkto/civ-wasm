@@ -52,7 +52,7 @@ The server holding the zip must allow cross-origin requests.
   make yourself are always animated.
 - **Settings while playing.** The Settings button changes zoom, display,
   map art, animation speed, enemy moves, the city blink, refusing other
-  civilizations' emissaries and autosave in the middle of a game, and saves
+  civilizations' emissaries, barbarians and autosave in the middle of a game, and saves
   and goes back to the start page to begin or continue another game.
   Shortcuts: Alt with - or _ zooms out, Alt with = or + zooms in, Alt with
   ` ~ * or Backspace switches between the Windows and DOS map art.
@@ -80,6 +80,10 @@ The server holding the zip must allow cross-origin requests.
 - **Better Default Unit.** A setting: new cities start on the best
   defender you know (Phalanx, Musketeers, Riflemen, Mech. Inf.) instead of
   Militia until Gunpowder.
+- **No barbarians.** A setting: no raids from the sea, no uprisings near
+  cities, and huts give mercenaries instead of a horde. The game rolls for
+  barbarians each turn, so it can be switched at any time; barbarians
+  already on the map stay.
 - **Display filters.** Crisp pixels, raw pixels, hq4x smoothing or bilinear, always
   at the original 4:3 shape. Fullscreen is in the toolbar (or F11).
 

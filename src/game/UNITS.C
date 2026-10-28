@@ -817,7 +817,7 @@ gold:
         money[owner] += 50;
         break;
     case 3:
-        if (d < 4 || city_count[owner] == 0)
+        if (d < 4 || city_count[owner] == 0 || civwasm_no_barbarians)     /* civ-wasm: barbarians off */
             goto mercenaries;
         strcpy(msgtext, "You have unleashed\na horde of barbarians!\n");
         if (owner == civnow)
