@@ -1,3 +1,4 @@
+#include "WIDE.H"                /* civ-wasm */
 #include <string.h>
 #include <stdlib.h>
 #include "BATTLE.H"
@@ -180,6 +181,8 @@ int attacker_civ_b, attacker_unit_m, defender_civ_e, defender_unit_p, flag;
     }
     if (attacker_civ_b == civnow)
         treaties[defender_civ_e][attacker_civ_b] &= ~0x200;
+    civwasm_stats_battle(attacker_civ_b, attacker_type_j, defender_civ_e, defender_type_o,      /* civ-wasm: Debug game stats */
+                         armydata[defender_civ_e][defender_unit_p].x, armydata[defender_civ_e][defender_unit_p].y, attacker_wins);
     if (attacker_type_j == 0x19) {
         atom(attacker_civ_b, armydata[defender_civ_e][defender_unit_p].x, armydata[defender_civ_e][defender_unit_p].y);
         return 1;

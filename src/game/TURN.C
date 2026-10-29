@@ -188,6 +188,7 @@ void game_turn(void)
         rect_fill(scrbuf, 2, 0xc0, 6, 6, 15);
         if (i == civnow) {
             status_draw();
+            civwasm_stats_turn();       /* civ-wasm: Debug game stats */
             if (city_count[i] == 0 && civ_settlers_n[i] == 0) {
                 mouse_off();
                 civ_destroyed();

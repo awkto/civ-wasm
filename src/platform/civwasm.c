@@ -113,6 +113,12 @@ CIVWASM_EXPORT void civwasm_set_no_barbarians(int on)
     civwasm_no_barbarians = (int16_t) !!on;
 }
 
+CIVWASM_EXPORT void civwasm_set_debug_stats(int on)
+{
+    extern int16_t civwasm_debug_stats;
+    civwasm_debug_stats = (int16_t) !!on;
+}
+
 CIVWASM_EXPORT void civwasm_set_better_default(int on)
 {
     extern int16_t civwasm_better_default;
@@ -188,6 +194,19 @@ void civwasm_step_shown(void)
         emscripten_sleep(1);
 #endif
 }
+
+/* Debug game stats (STATS.C): each record goes to the page's
+ * Module.civwasmStats, as JSON text. */
+#ifdef __EMSCRIPTEN__
+EM_JS(void, civwasm_stats_send, (const char *json), {
+    if (Module.civwasmStats) Module.civwasmStats(UTF8ToString(json));
+});
+#else
+void civwasm_stats_send(const char *json)
+{
+    (void) json;
+}
+#endif
 
 /* ----------------------------------------------------------- autosave */
 

@@ -84,6 +84,14 @@ The server holding the zip must allow cross-origin requests.
   cities, and huts give mercenaries instead of a horde. The game rolls for
   barbarians each turn, so it can be switched at any time; barbarians
   already on the map stay.
+- **Debug game stats.** A setting, off by default: at the start of each of
+  your turns the game records your civilization (government, gold, rates,
+  research, every city's size, food, shields, trade, happiness, production,
+  improvements and trade routes, your units and their orders, and your
+  relations with the others), plus every battle you fight. The Stats button
+  shows it: what needs attention now, the empire and each city turn by
+  turn, and a log of your decisions and what came of them. The record is
+  kept with the game and can be downloaded as JSON.
 - **Display filters.** Crisp pixels, raw pixels, hq4x smoothing or bilinear, always
   at the original 4:3 shape. Fullscreen is in the toolbar (or F11).
 
