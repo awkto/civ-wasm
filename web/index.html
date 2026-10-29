@@ -48,7 +48,9 @@
   #saves { margin-top: 14px; }
   #saves h2 { font-size: 14px; font-weight: 600; margin: 0 0 6px; color: var(--muted); }
   .save { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--border); }
-  .save .info { flex: 1; min-width: 0; }
+  .save { flex-wrap: wrap; }
+  .save .info { flex: 1 1 180px; min-width: 0; }
+  .save .actions { display: flex; gap: 6px; flex-wrap: wrap; }
   .save .name { font-weight: 600; overflow-wrap: anywhere; }
   .save .meta { color: var(--muted); font-size: 13px; }
   .save button { padding: 5px 10px; font-size: 13px; }
@@ -70,9 +72,13 @@
   #status.error { color: var(--error); }
   details { margin-top: 18px; color: var(--muted); font-size: 13px; }
   summary { cursor: pointer; }
-  #own-files { margin-top: 0; color: inherit; font-size: inherit; }
-  #own-files > summary { color: var(--muted); font-size: 13px; }
-  #own-files:not(.hosted) > summary { display: none; }
+  #card { max-width: 600px; }
+  #card > details { margin-top: 14px; color: inherit; font-size: inherit; border-top: 1px solid var(--border); padding-top: 10px; }
+  #card > details > summary { color: var(--accent); font-size: 14px; font-weight: 600; }
+  #card > details > summary .hint { font-weight: 400; }
+  #own-files.needed > summary { display: none; }
+  #own-files.needed { border-top: 0; padding-top: 0; }
+  #quiz-row { color: var(--text); align-items: flex-start; }
   #toolbar { position: fixed; top: 8px; right: 8px; z-index: 10; display: none; gap: 6px; opacity: .25;
     transition: opacity .2s; }
   #toolbar:hover, #toolbar:focus-within { opacity: 1; }
@@ -139,8 +145,21 @@
     <h1>Sid Meier's Civilization</h1>
     <p class="sub">The 1991 DOS game, rebuilt from source and running in your browser.</p>
     <p id="hosted" hidden>This site provides the game files: just press Play.</p>
+    <div class="row">
+      <button class="primary" id="continue" hidden>Continue</button>
+      <button class="primary" id="play" disabled>Play</button>
+    </div>
+    <div id="status">Starting…</div>
+    <div id="saves" hidden>
+      <h2>Your games</h2>
+      <div id="game-list"></div>
+      <details id="slots" hidden>
+        <summary>Save slots (the game's own Save menu)</summary>
+        <div id="slot-list"></div>
+      </details>
+    </div>
     <details id="own-files" open>
-    <summary>Use your own game files instead</summary>
+    <summary>Game files and saves</summary>
     <p>You need your own copy of the original game files. Choose the game's folder,
        a .zip of it, or drop either here. The files stay in this browser and are never uploaded.
        For the Windows version's map art, add <code>civdata4.rsc</code> from Civilization for Windows
@@ -153,24 +172,14 @@
       <input type="url" id="data-url" placeholder="…or the URL of a .zip" autocomplete="off" spellcheck="false">
       <button id="load-url">Load</button>
     </div>
-    </details>
-    <div class="row">
-      <button class="primary" id="continue" hidden>Continue</button>
-      <button class="primary" id="play" disabled>Play</button>
-      <button id="forget" hidden>Forget game files</button>
-    </div>
-    <div id="saves" hidden>
-      <h2>Your games</h2>
-      <div id="game-list"></div>
-      <details id="slots" hidden>
-        <summary>Save slots (the game's own Save menu)</summary>
-        <div id="slot-list"></div>
-      </details>
-    </div>
     <div class="row" id="save-files" hidden>
       <label class="btn">Load save file…<input type="file" id="pick-save" multiple accept=".zip,.sve,.map,.SVE,.MAP"></label>
-      <span class="hint">A .zip from Download, or a CIVIL<i>n</i>.SVE with its .MAP</span>
+      <button id="forget" hidden>Forget game files</button>
     </div>
+    <p class="hint">A save file is a .zip from Download, or a CIVIL<i>n</i>.SVE with its .MAP. Forget game files removes the game's files from this browser, not your saves.</p>
+    </details>
+    <details id="start-settings">
+    <summary>Settings <span class="hint">(also on the Settings button while you play)</span></summary>
     <div id="options">
     <section>
     <h3>Display</h3>
@@ -244,8 +253,8 @@
     <label class="check"><input type="checkbox" id="autosave" checked><span>Autosave as you play<small>Each game keeps its latest save and the last 20 turns</small></span></label>
     </section>
     </div>
-    <label class="check"><input type="checkbox" id="skip-quiz" checked> Skip the copy-protection quiz</label>
-    <div id="status">Starting…</div>
+    <label class="check" id="quiz-row"><input type="checkbox" id="skip-quiz" checked><span>Skip the copy-protection quiz</span></label>
+    </details>
     <details>
       <summary>About</summary>
       <p>Game logic from <a href="https://github.com/sjmelia/civd">civd</a>, a reverse-engineered
@@ -456,7 +465,10 @@ function saveRow(name, meta, ...buttons) {
   m.className = 'meta';
   m.textContent = meta;
   info.append(n, m);
-  row.append(info, ...buttons);
+  const actions = document.createElement('div');
+  actions.className = 'actions';
+  actions.append(...buttons);
+  row.append(info, actions);
   return row;
 }
 
@@ -523,6 +535,10 @@ function refresh() {
   $('continue').hidden = !(ok && games.length);
   $('play').disabled = !ok;
   $('save-files').hidden = !ok;
+  // Without game files the page is about choosing them: that part stays open.
+  if (!ok) $('own-files').open = true;
+  else if ($('own-files').classList.contains('needed')) $('own-files').open = false;
+  $('own-files').classList.toggle('needed', !ok);
   $('forget').hidden = !ok || !!bundled;
   const skin = haveSkin();
   $('skin-hint').hidden = !skin && $('skin').value === 'dos';
@@ -620,8 +636,7 @@ const siteConfig = fetch('site.json', { cache: 'no-cache' })
     if (typeof c.data === 'string' && c.data) bundled = c.data;
     if (typeof c.skin === 'string' && c.skin) bundledSkin = c.skin;
     $('hosted').hidden = !bundled;
-    $('own-files').open = !bundled;
-    $('own-files').classList.toggle('hosted', !!bundled);
+    $('own-files').open = false;
   });
 function dataUrl() {
   if (bundled) return bundled;
@@ -692,6 +707,11 @@ for (const [id, key] of [['controls', 'civ-controls'], ['filter', 'civ-filter'],
   try { const v = localStorage.getItem(key); if (v) $(id).value = v; } catch {}
   $(id).addEventListener('change', () => { try { localStorage.setItem(key, $(id).value); } catch {} });
 }
+// The start page's Settings stay open or closed as last left.
+try { $('start-settings').open = localStorage.getItem('civ-start-settings') === 'open'; } catch {}
+$('start-settings').addEventListener('toggle', () => {
+  try { localStorage.setItem('civ-start-settings', $('start-settings').open ? 'open' : 'closed'); } catch {}
+});
 try { if (localStorage.getItem('civ-autosave') === 'off') $('autosave').checked = false; } catch {}
 try { if (localStorage.getItem('civ-city-blink') === 'off') $('city-blink').checked = false; } catch {}
 $('city-blink').addEventListener('change', () => {
