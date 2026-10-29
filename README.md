@@ -84,7 +84,8 @@ The server holding the zip must allow cross-origin requests.
 - **Auto Explore (Shift+E).** Any land or sea unit heads for the nearest
   known tile that borders unexplored land or sea, on its own landmass or
   sea, choosing again at every move, until nothing is left to explore
-  there; then it asks for orders. Explorers don't share goals and pass over
+  there, or until another civilization's unit is next to it; then it asks
+  for orders. Explorers don't share goals and pass over
   tiles that others hold. It is on the Orders menu too.
 - **Better Default Unit.** A setting: new cities start on the best
   defender you know (Phalanx, Musketeers, Riflemen, Mech. Inf.) instead of

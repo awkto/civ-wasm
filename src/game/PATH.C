@@ -816,7 +816,8 @@ stop:
  * nearest tile it knows that borders the unknown, on its own landmass or
  * sea, and looks again at every move. Other explorers' goals are left to
  * them, and tiles held by others are passed over. With nothing left to
- * explore within reach, the unit asks for orders. */
+ * explore within reach, or another civilization's unit next to it, the
+ * unit asks for orders. */
 static int explore_frontier(int player, int x, int y)
 {
     int d, nx, ny;
@@ -834,6 +835,11 @@ int auto_explore_goal(int player, int unit)
     struct unit *u = &armydata[player][unit], *o;
     int sea = utypes[u->type].domain == 2, region = region_key(u->x, u->y);
     int best = 9999, bx = -1, by = 0, dx, dy, x, y, d, i, r;
+    for (d = 1; d <= 8; d++) {
+        y = u->y + spiral_y[d];
+        if (y >= 0 && y < 50 && map_stack(wrap_x(u->x + spiral_x[d]), y) != -1 && stk_plr != player)
+            goto stop;
+    }
     for (r = 1; r <= 24 && bx == -1; r++)       /* rings out from the unit: the nearest ring wins */
         for (dy = -r; dy <= r; dy++)
             for (dx = -r; dx <= r; dx++) {
