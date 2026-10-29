@@ -523,7 +523,7 @@ stop:
  *
  * Auto Mine given where nothing is left to mine is level 2 ('n'): it mines
  * the Mountains around, which the land's own rule leaves alone. */
-char civwasm_auto_work[8][128];         /* 'i', 'm', 'n' (Mountains), 'a', 'l', 'A', 'L' (level 2); 0 none */
+char civwasm_auto_work[8][128];         /* 'i', 'm', 'n' (Mountains), 'a', 'l', 'A', 'L' (level 2), 'e' (Auto Explore); 0 none */
 unsigned char civwasm_auto_x[8][128], civwasm_auto_y[8][128];   /* where the order was given */
 
 extern int work_tile(int, int), region_key(int, int);
@@ -748,6 +748,70 @@ int auto_road_goal(int player, int unit)
         goto stop;
     if (bx == u->x && by == u->y)
         return 'r';
+    u->goto_x = (char) bx;
+    u->goto_y = (char) by;
+    d = unit_goal(player, unit);
+    if (d < 1 || d > 8)
+        goto stop;
+    return d;
+stop:
+    civwasm_auto_work[player][unit] = 0;
+    u->goto_x = u->f8 = -1;
+    return -1;
+}
+
+/* civ-wasm: Auto Explore (Shift+E): a land or sea unit heads for the
+ * nearest tile it knows that borders the unknown, on its own landmass or
+ * sea, and looks again at every move. Other explorers' goals are left to
+ * them, and tiles held by others are passed over. With nothing left to
+ * explore within reach, the unit asks for orders. */
+static int explore_frontier(int player, int x, int y)
+{
+    int d, nx, ny;
+    for (d = 1; d <= 8; d++) {
+        nx = wrap_x(x + spiral_x[d]);
+        ny = y + spiral_y[d];
+        if (ny >= 0 && ny < 50 && !(map_visible_to[nx * 50 + ny] & (1 << player)))
+            return 1;
+    }
+    return 0;
+}
+
+int auto_explore_goal(int player, int unit)
+{
+    struct unit *u = &armydata[player][unit], *o;
+    int sea = utypes[u->type].domain == 2, region = region_key(u->x, u->y);
+    int best = 9999, bx = -1, by = 0, dx, dy, x, y, d, i, r;
+    for (r = 1; r <= 24 && bx == -1; r++)       /* rings out from the unit: the nearest ring wins */
+        for (dy = -r; dy <= r; dy++)
+            for (dx = -r; dx <= r; dx++) {
+                if (abs(dx) != r && abs(dy) != r)
+                    continue;
+                x = wrap_x(u->x + dx);
+                y = u->y + dy;
+                if (y < 1 || y > 48 || !(map_visible_to[x * 50 + y] & (1 << player)))
+                    continue;
+                if ((terrain_at(x, y) == 10) != sea || region_key(x, y) != region || !explore_frontier(player, x, y))
+                    continue;
+                if ((map_stack(x, y) != -1 && stk_plr != player) || ((map_flags(x, y) & 1) && map_owner(x, y) != player))
+                    continue;
+                for (i = 0; i < 128; i++) {
+                    o = &armydata[player][i];
+                    if (i != unit && o->type != -1 && civwasm_auto_work[player][i] == 'e' &&
+                        (unsigned char) o->goto_x == x && (unsigned char) o->goto_y == y)
+                        break;
+                }
+                if (i < 128)
+                    continue;
+                d = abs(dx) + abs(dy);
+                if (d < best) {
+                    best = d;
+                    bx = x;
+                    by = y;
+                }
+            }
+    if (bx == -1)
+        goto stop;
     u->goto_x = (char) bx;
     u->goto_y = (char) by;
     d = unit_goal(player, unit);
