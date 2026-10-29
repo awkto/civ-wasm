@@ -104,7 +104,8 @@ The server holding the zip must allow cross-origin requests.
 - **AI advisor.** A setting, off by default: a language model reads the
   game stats and advises at the start of every turn or every few turns: a
   few short lines that pop up in the corner and fade. The Advisor button
-  opens the chat, for Advise now and questions; each piece of advice starts
+  opens the chat, for Advise now and questions (Alt+. pops up advice at
+  once, Alt+/ opens the chat); each piece of advice starts
   a fresh thread, so the model only sees the game and that exchange. It uses any OpenAI-compatible endpoint (Fireworks by
   default) with your own API key, which stays in your browser; the page
   calls the endpoint directly. Its instructions carry this game's rules

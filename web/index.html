@@ -290,7 +290,7 @@
 </div>
 <div id="toolbar">
   <button id="settings-open" title="Settings: zoom, display, map art, speed, enemy moves; back to the start page">Settings</button>
-  <button id="advisor-open" title="The AI advisor: its latest advice, and questions" hidden>Advisor</button>
+  <button id="advisor-open" title="The AI advisor: its latest advice, and questions (Alt+/; Alt+. for quick advice)" hidden>Advisor</button>
   <button id="stats-open" title="Debug game stats: the record of every turn" hidden>Stats</button>
   <button id="fullscreen" title="Fullscreen (F11)">Fullscreen</button>
 </div>
@@ -298,7 +298,7 @@
 <div id="advisor-toast"><button id="advisor-toast-close" title="Dismiss">×</button><div id="advisor-toast-body"></div></div>
 <div id="advisor" hidden>
   <div class="head"><b>Advisor</b><span class="muted" id="advisor-status"></span>
-    <button id="advisor-now" title="Fresh advice for this turn">Advise now</button>
+    <button id="advisor-now" title="Fresh advice for this turn (Alt+.)">Advise now</button>
     <button id="advisor-close" title="Close (Esc)">Close</button></div>
   <div id="advisor-log"></div>
   <form id="advisor-form"><input id="advisor-q" placeholder="Ask: what should Rome build?" autocomplete="off"><button>Ask</button></form>
@@ -1222,6 +1222,13 @@ function toastShow(entry) {
   $('advisor-toast').classList.add('shown');
   toastArm();
 }
+// While the advice is on its way: the pop-up says so, until the answer replaces it.
+function toastWait() {
+  if (!$('advisor').hidden) return;
+  clearTimeout(toastTimer);
+  $('advisor-toast-body').innerHTML = '<div class="muted">Advisor is thinking…</div>';
+  $('advisor-toast').classList.add('shown');
+}
 function toastArm() {
   clearTimeout(toastTimer);
   const words = $('advisor-toast-body').innerText.split(/\s+/).length;
@@ -1299,6 +1306,7 @@ async function advise(question) {
   if (advisorBusy) return;
   advisorBusy = true;
   $('advisor-status').textContent = 'thinking…';
+  if (!question) toastWait();
   // Advice starts a new thread; a question carries on the recent one.
   const before = question ? currentThread(now.turn).filter(e => e.role !== 'error') : [];
   const thread = before.length ? before[0].thread : Date.now();
@@ -1352,6 +1360,9 @@ aiFields();
 // By key position, so Shift and keyboard layouts don't matter.
 const SHORTCUTS = { Minus: () => zoom(-1), NumpadSubtract: () => zoom(-1), Equal: () => zoom(1), NumpadAdd: () => zoom(1),
   Backquote: switchArt, NumpadMultiply: switchArt, Digit8: switchArt, Backspace: switchArt };
+// The AI advisor: Alt+. pops up advice for this turn, Alt+/ opens the chat.
+SHORTCUTS.Period = () => { if ($('ai-on').checked) advise(); };
+SHORTCUTS.Slash = () => { if ($('ai-on').checked) advisorPanel($('advisor').hidden); };
 function switchArt() {
   if (!haveSkin()) return;
   $('skin').value = $('skin').value === 'winciv' ? 'dos' : 'winciv';
