@@ -818,6 +818,11 @@ mv:                            /* move unit */
                         qo = map_stack(oq, mc);
                         if (utypes[U.type].domain == 0) {
                             if (qo == -1 && if_open(civ, ku, jv) != 0 && if_open(civ, oq, mc) != 0 && U.type < 26 && iw != 10) {
+                                if (civwasm_auto_work[civ][jf] == 'e') {
+                                    civwasm_auto_work[civ][jf] = 0;     /* civ-wasm: Auto Explore ends next to an enemy */
+                                    U.goto_x = U.f8 = -1;
+                                    break;
+                                }
                                 if (civwasm_auto_work[civ][jf]) {
                                     U.moves = 0;        /* civ-wasm: an Auto order waits, and tries again next turn */
                                     break;
