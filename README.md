@@ -111,6 +111,15 @@ The server holding the zip must allow cross-origin requests.
   default) with your own API key, which stays in your browser; the page
   calls the endpoint directly. Its instructions carry this game's rules
   (growth, disorder, governments, buildings), read from the source.
+- **AI plays (Alt+P).** Hands your civilization to the model and back at
+  any time. Each turn it sends one plan (research, rates, what cities
+  build, an order for every idle unit), which the game carries out as your
+  own orders without opening any screen; units it leaves alone get the
+  game's computer-player moves, and the game's questions are answered for
+  it. A city's build stays at least 8 turns unless the city needs a new
+  one. A direction line in the chat ("grow fast", "science first") is kept
+  with the game and sent with every plan, and the chat shows its occasional
+  notes. It cannot change government yet.
 - **Display filters.** Crisp pixels, raw pixels, hq4x smoothing or bilinear, always
   at the original 4:3 shape. Fullscreen is in the toolbar (or F11).
 
