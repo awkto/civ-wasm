@@ -15,6 +15,7 @@
 #include "CITYMGT.H"
 #include "RESIDENT.H"
 #include "WIDE.H"
+#include "UNITAI.H"
 
 extern struct city townbuf[];
 extern struct unit armydata[8][128];
@@ -23,8 +24,18 @@ extern int treaties[8][8];
 extern char far place_name[][13];
 extern int marvel_site[];
 extern int city_process(int, int);
+extern int game_flags;
+extern struct terrain_type terrains[];
+extern int terrain_at(int, int), wrap_x(int);
+extern int spiral_x[], spiral_y[];
+extern int far advance_owners[];
+
+static void field(char *, int);
 
 int civwasm_debug_stats;        /* --debug-stats (WIDE.H; set while playing too) */
+int civwasm_ai_drive;           /* AI plays: the page's plan gives the orders (WIDE.H) */
+char civwasm_ai_cmd[8][128];    /* the plan's next order key per unit; 0 none */
+static int plan_turn = -1;      /* the turn the page's plan was applied for */
 
 static char record[200000];
 static char *out;
@@ -98,6 +109,34 @@ static void send_record(void)
     civwasm_stats_send(record);
 }
 
+/* What the city can build: the game's own change list (ECONOMY.C
+ * find_slot), units as their type, improvements and wonders as minus
+ * their number. */
+static int can_build(int city, int what)
+{
+    int civ = townbuf[city].owner, i;
+    long bld = townbuf[city].buildings;
+    if (what >= 0) {
+        if (what >= 28 || (what == 25 && (marvel_site[17] == -1 || !has_tech(civ, 27))))
+            return 0;
+        return has_tech(civ, utypes[what].prereq) && !has_tech(civ, utypes[what].obsolete_by) && ((townbuf[city].status & 2) || utypes[what].domain != 2);
+    }
+    i = -what;
+    if (i <= 24) {
+        if (!(rule_options & 4) || !has_tech(civ, improvements[i].prereq) || (bld & (1L << (i - 1))) || (i == 7 && (bld & 1)) || (i == 15 && (bld & 0x8000L)) ||
+            (i == 10 && !(bld & 0x10L) && has_tech(civ, improvements[5].prereq)) || (i == 12 && !(bld & 0x20L) && has_tech(civ, improvements[6].prereq)) ||
+            (i == 20 && !(townbuf[city].status & 8)) || (i == 19 && !(bld & 0x4000L)) || ((i == 19 || i == 20 || i == 21) && (bld & 0x1c0000L)))
+            return 0;
+        return !(i > 21 && (marvel_site[19] == -1 || (game_flags & (1 << civ))));
+    }
+    return i <= 45 && has_tech(civ, improvements[i].prereq) && (marvel_site - 24)[i] == -1;
+}
+
+static char far *build_name(int what)
+{
+    return what >= 0 ? utypes[what].name : improvements[-what].name;
+}
+
 static void city_record(int city)
 {
     int c = civnow, i, cost, net, settler_food;
@@ -162,6 +201,15 @@ static void city_record(int city)
             text(improvements[24 + i].name);
         }
     put("]");
+    key("can_build");
+    put("[");
+    for (i = -45; i < 28; i++)
+        if (i != 0 && can_build(city, i)) {
+            if (out[-1] != '[')
+                put(",");
+            text(build_name(i));
+        }
+    put("]");
     key("trade_routes");
     put("[");
     for (i = 0; i < 3; i++)
@@ -184,6 +232,22 @@ static void unit_record(int u)
     text(utypes[p->type].name);
     field("x", p->x);
     field("y", p->y);
+    key("terrain");
+    text(terrains[terrain_at(p->x, p->y)].name);
+    if (p->type == 0) {
+        /* what a city here would have: the 8 tiles around, north first, clockwise */
+        int d;
+        key("around");
+        put("[");
+        for (d = 1; d <= 8; d++) {
+            if (d > 1)
+                put(",");
+            text(terrains[terrain_at(wrap_x(p->x + spiral_x[d]), p->y + spiral_y[d])].name);
+        }
+        put("]");
+    }
+    if (civwasm_ai_cmd[civnow][u] == 'Z')
+        field("ai_auto", 1);
     key("veteran");
     put(p->status & UNIT_VETERAN ? "true" : "false");
     key("fortified");
@@ -244,13 +308,10 @@ static void rival_record(int r)
     put("}");
 }
 
-/* The start of the player's turn (TURN.C game_turn). */
-void civwasm_stats_turn(void)
+static void turn_record(void)
 {
     int c = civnow, i, diff;
 
-    if (!civwasm_debug_stats || c < 0)
-        return;
     open_record("turn");
     key("government");
     text(government_names[civ_gov[c]]);
@@ -274,6 +335,15 @@ void civwasm_stats_turn(void)
     put("[");
     for (i = 0; i < 71; i++)
         if (has_tech(c, i)) {
+            if (out[-1] != '[')
+                put(",");
+            text(advances[i].name);
+        }
+    put("]");
+    key("can_research");
+    put("[");
+    for (i = 0; i < 71; i++)
+        if (!has_tech(c, i) && has_tech(c, advances[i].prereq1) && has_tech(c, advances[i].prereq2)) {
             if (out[-1] != '[')
                 put(",");
             text(advances[i].name);
@@ -318,6 +388,24 @@ void civwasm_stats_turn(void)
     send_record();
 }
 
+/* The start of the player's turn (TURN.C game_turn): the record, and
+ * with AI plays on, its plan. */
+void civwasm_stats_turn(void)
+{
+    if (!civwasm_debug_stats || civnow < 0)
+        return;
+    turn_record();
+    if (civwasm_ai_drive)
+        civwasm_ai_wait_plan();
+}
+
+/* A record of the turn as it stands (the page, when AI plays starts). */
+void civwasm_stats_now(void)
+{
+    if (civnow >= 0 && turn_tick > 0)
+        turn_record();
+}
+
 /* A battle the player fights (BATTLE.C battle), once it is decided. */
 void civwasm_stats_battle(int attacker, int attacker_type, int defender, int defender_type, int x, int y, int attacker_won)
 {
@@ -344,4 +432,88 @@ void civwasm_stats_battle(int attacker, int attacker_type, int defender, int def
             break;
     city_name(city);
     send_record();
+}
+
+/* ------------------------------------------------------------ AI plays
+ * The page's plan, applied through these: each checks the game's rules
+ * and returns 1 when done. Units get standing orders: a GoTo now, or a
+ * key their next turn takes as the player's (civwasm_ai_key). */
+int civwasm_ai_build(int city, int what)
+{
+    if (city < 0 || city >= 128 || townbuf[city].status == -1 || townbuf[city].owner != civnow || !can_build(city, what))
+        return 0;
+    townbuf[city].production = (char) what;
+    return 1;
+}
+
+/* Tax and science in tenths; luxury is the rest. */
+int civwasm_ai_rates(int tax, int science)
+{
+    if (tax < 0 || science < 0 || tax + science > 10)
+        return 0;
+    civ_toll[civnow] = tax;
+    sci[civnow] = science;
+    return 1;
+}
+
+int civwasm_ai_research(int adv)
+{
+    int c = civnow;
+    if (adv < 0 || adv >= 71 || has_tech(c, adv) || !has_tech(c, advances[adv].prereq1) || !has_tech(c, advances[adv].prereq2))
+        return 0;
+    selected_index = adv;
+    return 1;
+}
+
+/* order: 'g' GoTo (x, y), or a key the unit takes on its next move: 1-8
+ * a step (north, then clockwise), and the game's own keys (f fortify,
+ * s sentry, b found or join a city, r road, i irrigate, m mine, I M A L E
+ * the Auto orders, w wait, space no orders, D disband, h home city). */
+int civwasm_ai_unit(int unit, int order, int x, int y)
+{
+    struct unit *u;
+    if (unit < 0 || unit >= 128 || armydata[civnow][unit].type == -1)
+        return 0;
+    u = &armydata[civnow][unit];
+    if (order == 'g') {
+        if (x < 0 || x >= 80 || y < 1 || y > 48)
+            return 0;
+        u->status &= 0x30;
+        civwasm_auto_work[civnow][unit] = civwasm_road_to[civnow][unit] = 0;
+        civwasm_ai_cmd[civnow][unit] = 0;
+        u->goto_x = (char) x;
+        u->goto_y = (char) y;
+        return 1;
+    }
+    u->status &= 0x30;          /* woken from sentry or fortified to take it */
+    u->goto_x = -1;
+    civwasm_auto_work[civnow][unit] = civwasm_road_to[civnow][unit] = 0;
+    civwasm_ai_cmd[civnow][unit] = (char) order;
+    return 1;
+}
+
+void civwasm_ai_planned(void)
+{
+    plan_turn = turn_tick;
+}
+
+/* The key for a unit waiting for orders (CONTROL.C), or Enter at the end
+ * of the turn. Waits for the turn's plan first. */
+int civwasm_ai_key(int civ, int unit)
+{
+    int k;
+    if (plan_turn != turn_tick)
+        civwasm_ai_wait_plan();
+    if (unit >= 128)
+        return 13;
+    k = civwasm_ai_cmd[civ][unit];
+    if (k == 'Z') {
+        /* the game's own computer-player orders, every turn until replaced */
+        k = ai_order(civ, unit);
+        if (k)
+            armydata[civ][unit].goto_x = -1;
+        return k;
+    }
+    civwasm_ai_cmd[civ][unit] = 0;
+    return k ? k : ' ';
 }

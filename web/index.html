@@ -108,6 +108,10 @@
   #advisor-log { overflow: auto; padding: 4px 10px; flex: 1; }
   #advisor-log .a, #advisor-log .q { margin: 8px 0; }
   #advisor-log .q { color: var(--accent); }
+  #advisor-log .note { color: #b9c7d8; font-style: italic; margin: 4px 0; }
+  #advisor-direction { margin: 6px 8px 0; font: inherit; font-size: 12px; background: #222836; color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; }
+  #ai-drive.on, #advisor-drive.on { background: #2f6b3a; border-color: #4f9a5c; opacity: 1; }
   #advisor-log .err { color: var(--error); }
   #advisor-log ul { margin: 2px 0; padding-left: 18px; }
   #advisor-log p { margin: 2px 0; }
@@ -299,6 +303,7 @@
 </div>
 <div id="toolbar">
   <button id="settings-open" title="Settings: zoom, display, map art, speed, enemy moves; back to the start page">Settings</button>
+  <button id="ai-drive" title="Let the AI play your civilization, or take control back (Alt+P)" hidden>AI plays</button>
   <button id="advisor-open" title="The AI advisor: its latest advice, and questions (Alt+/; Alt+. for quick advice)" hidden>Advisor</button>
   <button id="stats-open" title="Debug game stats: the record of every turn" hidden>Stats</button>
   <button id="fullscreen" title="Fullscreen (F11)">Fullscreen</button>
@@ -307,8 +312,10 @@
 <div id="advisor-toast"><button id="advisor-toast-close" title="Dismiss">×</button><div id="advisor-toast-body"></div></div>
 <div id="advisor" hidden>
   <div class="head"><b>Advisor</b><span class="muted" id="advisor-status"></span>
+    <button id="advisor-drive" title="Let the AI play your civilization, or take control back (Alt+P)">AI plays</button>
     <button id="advisor-now" title="Fresh advice for this turn (Alt+.)">Advise now</button>
     <button id="advisor-close" title="Close (Esc)">Close</button></div>
+  <input id="advisor-direction" placeholder="Direction for the AI: e.g. grow fast, science first, avoid wars" autocomplete="off">
   <div id="advisor-log"></div>
   <form id="advisor-form"><input id="advisor-q" placeholder="Ask: what should Rome build?" autocomplete="off"><button>Ask</button></form>
 </div>
@@ -921,7 +928,7 @@ Module.civwasmStats = json => {
     writeJson(file, [...readJson(file, []), rec]);
   }
   if (!$('stats').hidden) renderStats();
-  if (rec.kind === 'turn') advisorTurn(rec);
+  if (rec.kind === 'turn') aiDriving ? planTurn(rec) : advisorTurn(rec);
 };
 
 // The game's record so far: [{turn record, battles: […]}, …], oldest first.
@@ -1157,7 +1164,8 @@ $('ai-on').checked = aiSetting('ai-on', 'off') === 'on';
 const aiOn = () => $('ai-on').checked && $('ai-key').value.trim();
 function aiFields() {
   $('ai-fields').hidden = !$('ai-on').checked;
-  $('advisor-open').hidden = !$('ai-on').checked;
+  $('advisor-open').hidden = $('ai-drive').hidden = !$('ai-on').checked;
+  if (!$('ai-on').checked && aiDriving) aiDrive(false);
   if (!$('ai-on').checked) { advisorPanel(false); toastHide(); }
 }
 $('ai-on').addEventListener('change', () => {
@@ -1216,6 +1224,7 @@ function adviceHtml(text) {
 }
 const entryHtml = e => e.role === 'user'
   ? `<div class="q"><span class="muted">you:</span> ${esc(e.text)}</div>`
+  : e.role === 'note' ? `<div class="note"><span class="muted">T${e.turn}</span> ${esc(e.text)}</div>`
   : `<div class="${e.role === 'error' ? 'a err' : 'a'}"><div class="muted">${e.role === 'error' ? 'Error' : 'Advisor'}, turn ${e.turn} (${yearText(e.year)})</div>${e.role === 'error' ? esc(e.text) : adviceHtml(e.text)}</div>`;
 
 // The chat panel shows the latest thread.
@@ -1228,6 +1237,7 @@ function renderAdvisor() {
 }
 function advisorPanel(open) {
   $('advisor').hidden = !open;
+  if (open) $('advisor-direction').value = direction();
   if (open) { toastHide(); renderAdvisor(); $('advisor-q').focus(); }
   else $('canvas').focus();
 }
@@ -1284,18 +1294,20 @@ function advisorContext(history) {
 // One request, given up after `wait` ms. Thinking off asks reasoning models
 // to answer at once (reasoning_effort "none"); an endpoint that rejects the
 // field gets the request again without it.
-async function complete(messages, think) {
+async function complete(messages, think, json) {
   const url = $('ai-endpoint').value.replace(/\/+$/, '') + '/chat/completions';
-  const body = { model: $('ai-model').value.trim() || AI_DEFAULTS.model, messages, temperature: 0.4, max_tokens: think ? 6000 : 500 };
+  const body = { model: $('ai-model').value.trim() || AI_DEFAULTS.model, messages, temperature: 0.4, max_tokens: think ? 6000 : json ? 3000 : 500 };
   if (!think) body.reasoning_effort = 'none';
+  if (json) body.response_format = { type: 'json_object' };
   for (let attempt = 0; ; attempt++) {
     const stop = new AbortController(), timer = setTimeout(() => stop.abort(), think ? 150000 : 45000);
     try {
       const r = await fetch(url, { method: 'POST', signal: stop.signal, body: JSON.stringify(body),
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + $('ai-key').value.trim() } });
-      if (r.status === 400 && body.reasoning_effort) {
+      if (r.status === 400 && (body.reasoning_effort || body.response_format)) {
         const t = await r.text();
         if (/reasoning/i.test(t)) { delete body.reasoning_effort; continue; }
+        if (/response_format/i.test(t) && body.response_format) { delete body.response_format; continue; }
         throw new Error(`400: ${t.slice(0, 300)}`);
       }
       if (r.status >= 500 && attempt < 1) continue;
@@ -1375,6 +1387,165 @@ for (const t of ['keydown', 'keyup', 'keypress'])
   $('advisor').addEventListener(t, e => { e.stopPropagation(); if (t === 'keydown' && e.key === 'Escape') advisorPanel(false); });
 aiFields();
 
+// The game's tables by number (src/game/GAME.C), to turn the plan's names into orders.
+const GAME_UNITS = ["Settlers", "Militia", "Phalanx", "Legion", "Musketeers", "Riflemen", "Cavalry", "Knights", "Catapult", "Cannon", "Chariot", "Armor", "Mech. Inf.", "Artillery", "Fighter", "Bomber", "Trireme", "Sail", "Frigate", "Ironclad", "Cruiser", "Battleship", "Submarine", "Carrier", "Transport", "Nuclear", "Diplomat", "Caravan"];
+const GAME_IMPROVEMENTS = ["NONE", "Palace", "Barracks", "Granary", "Temple", "MarketPlace", "Library", "Courthouse", "City Walls", "Aqueduct", "Bank", "Cathedral", "University", "Mass Transit", "Colosseum", "Factory", "Mfg. Plant", "SDI Defense", "Recycling Cntr.", "Power Plant", "Hydro Plant", "Nuclear Plant", "SS Structural", "SS Component", "SS Module", "Pyramids", "Hanging Gardens", "Colossus", "Lighthouse", "Great Library", "Oracle", "Great Wall", "Magellan's Expedition", "Michelangelo's Chapel", "Copernicus' Observatory", "Shakespeare's Theatre", "Isaac Newton's College", "J.S.Bach's Cathedral", "Darwin's Voyage", "Hoover Dam", "Women's Suffrage", "Manhattan Project", "United Nations", "Apollo Program", "SETI Program", "Cure for Cancer"];
+const GAME_ADVANCES = ["Alphabet", "Code of Laws", "Currency", "Atomic Theory", "Democracy", "Monarchy", "Astronomy", "MapMaking", "Navigation", "Mathematics", "Medicine", "Physics", "Engineering", "University", "Magnetism", "Electronics", "Masonry", "Bronze Working", "Iron Working", "Bridge Building", "Invention", "Computers", "Writing", "Steam Engine", "Trade", "Ceremonial Burial", "Mysticism", "Nuclear Fission", "Philosophy", "Religion", "Literacy", "Horseback Riding", "Feudalism", "The Wheel", "Gunpowder", "Industrialization", "Chemistry", "Combustion", "Flight", "Advanced Flight", "Space Flight", "Mass Production", "Pottery", "Communism", "The Republic", "Construction", "Rocketry", "The Corporation", "Metallurgy", "RailRoad", "Nuclear Power", "Theory of Gravity", "Steel", "Banking", "Electricity", "Refining", "Explosives", "SuperConductor", "Automobile", "Genetic Engineering", "Plastics", "Recycling", "Chivalry", "Robotics", "Conscription", "Labor Union", "Fusion Power", "1", "2", "3", "4", "Future Tech."];
+
+// AI plays: the model plays the player's civilization. At the start of each
+// turn it gets the game (as the advisor does) and answers with one plan:
+// research, rates, what cities build, and an order for every unit waiting
+// for one. The page applies it (src/game/STATS.C civwasm_ai_*), and the game
+// carries the orders out as the player's own: GoTo walks on by itself, and
+// units the plan leaves alone get the game's computer-player orders. The
+// game answers its dialogs by asking the page (Module.civwasmAiDialog) and
+// waits at the start of the turn until the plan is in. Switching it off
+// hands the turn back at once; standing orders stay.
+const PLAN_RULES = `You are now playing this civilization yourself. Reply with one JSON object and nothing else:
+{"notes": [], "research": "", "rates": {"tax": 50, "science": 50}, "cities": [{"name": "", "build": ""}], "units": [{"id": 0, "order": "", "x": 0, "y": 0, "dir": ""}]}
+- units: an order for every unit listed as awaiting orders (others keep their standing orders unless you replace them). Orders: "goto" with x and y; "move" with dir N, NE, E, SE, S, SW, W or NW (one step; onto an enemy it attacks); "fortify"; "sentry"; "found_city" (Settlers: found a city on their tile, or join the city they stand in); "road", "irrigate", "mine" (Settlers, their tile); "auto_irrigate", "auto_mine", "auto_road" (Settlers improve the land for the cities); "explore"; "ai" (the game's own computer player moves the unit every turn: fine for routine units); "wait"; "skip"; "disband".
+- Settlers show "around": the 8 tiles next to them, north first, clockwise. Found cities on Grassland, Plains or River with good land around, 3 to 5 tiles from other cities.
+- cities: a city keeps its build until it is finished. List a city only when its build can no longer be finished (change_due), it is in disorder or starving, enemies are near, or the player's direction calls for it; "build" must be in that city's can_build.
+- research: only when it should change, from can_research. rates: only when they should change; tax and science in tens, adding up to at most 100, the rest is luxury.
+- Government changes (revolution) are not available to you yet: leave the government alone.
+- notes: usually empty. At most 1 short phrase, under 12 words each, only for a new decision worth telling the player: a build changed and why, unrest, a war, a new city, research or rates changed. Never repeat one of your recent notes.
+- Follow the player's direction.`;
+const ORDER_KEYS = { fortify: 'f', sentry: 's', found_city: 'b', road: 'r', irrigate: 'i', mine: 'm', auto_irrigate: 'I',
+  auto_mine: 'M', auto_road: 'A', explore: 'E', ai: 'Z', wait: 'w', skip: ' ', disband: 'D', home: 'h' };
+const DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+
+var aiDriving = false;           // var: Settings may ask before this runs
+let plannedTurn = -1, planning = false, aiMessages = [], buildChanged = {}, lastMissed = [];
+const directionFile = () => `${GAMES}/${activeGame}/direction.txt`;
+const direction = () => { try { return new TextDecoder().decode(FS.readFile(directionFile())).trim(); } catch { return ''; } };
+$('advisor-direction').addEventListener('change', () => {
+  if (!activeGame) return;
+  FS.writeFile(directionFile(), $('advisor-direction').value.trim());
+  const d = $('advisor-direction').value.trim(), now = statsHistory().at(-1);
+  advisorSay({ role: 'note', turn: now?.turn ?? 0, year: now?.year ?? 0, text: d ? `Direction: ${d}` : 'Direction cleared', thread: currentThread(now?.turn ?? 0)[0]?.thread ?? Date.now() });
+});
+
+// Units with nothing to do: no GoTo, Auto order or work under way, not fortified or asleep.
+const awaiting = rec => rec.units.filter(u => !u.goto && !u.fortified && !u.sentry && !u.auto_work && !u.road_to && !u.ai_auto && !(u.status & 0xc2));
+
+function applyPlan(plan, rec) {
+  const missed = [];
+  const name = n => String(n || '').trim().toLowerCase();
+  if (plan.research) {
+    const id = GAME_ADVANCES.findIndex(a => name(a) === name(plan.research));
+    if (!(id >= 0 && Module._civwasm_order_research(id))) missed.push(`research ${plan.research}`);
+  }
+  if (plan.rates && Number.isFinite(+plan.rates.tax) && Number.isFinite(+plan.rates.science))
+    if (!Module._civwasm_order_rates(Math.round(plan.rates.tax / 10), Math.round(plan.rates.science / 10))) missed.push('rates');
+  for (const c of plan.cities || []) {
+    const city = rec.cities.find(x => name(x.name) === name(c.name) || x.id === c.id);
+    // A build stays at least 8 turns unless the city needs a new one now.
+    const urgent = city && (city.change_due || city.disorder || city.food_net < 0 || city.unhappy > city.happy);
+    if (city && !urgent && rec.turn - (buildChanged[city.id] ?? -99) < 8 && name(city.building) !== name(c.build)) { missed.push(`${c.name}: ${c.build} (kept ${city.building})`); continue; }
+    let what = GAME_UNITS.findIndex(u => name(u) === name(c.build));
+    if (what < 0) {
+      const i = GAME_IMPROVEMENTS.findIndex(i => name(i) === name(c.build));
+      what = i > 0 ? -i : null;
+    }
+    if (!city || what === null || !Module._civwasm_order_build(city.id, what)) missed.push(`${c.name}: ${c.build}`);
+    else buildChanged[city.id] = rec.turn;
+  }
+  const ordered = new Set();
+  for (const u of plan.units || []) {
+    let ok = false;
+    if (u.order === 'goto') ok = Module._civwasm_order_unit(u.id, 'g'.charCodeAt(0), u.x, u.y);
+    else if (u.order === 'move') ok = DIRS.includes(u.dir) && Module._civwasm_order_unit(u.id, DIRS.indexOf(u.dir) + 1, 0, 0);
+    else if (ORDER_KEYS[u.order]) ok = Module._civwasm_order_unit(u.id, ORDER_KEYS[u.order].charCodeAt(0), 0, 0);
+    if (ok) ordered.add(u.id); else missed.push(`unit ${u.id}: ${u.order}`);
+  }
+  // Left without an order: the game's own computer-player moves.
+  for (const u of awaiting(rec)) if (!ordered.has(u.id)) Module._civwasm_order_unit(u.id, 'Z'.charCodeAt(0), 0, 0);
+  return missed;
+}
+
+async function planTurn(rec) {
+  if (!aiDriving || planning || !rec || plannedTurn === rec.turn) return;
+  planning = true;
+  plannedTurn = rec.turn;
+  driveStatus(`planning turn ${rec.turn}…`);
+  const history = statsHistory(), notes = advisorLog().filter(e => e.role === 'note').slice(-5);
+  const idle = awaiting(rec);
+  const messages = [
+    { role: 'system', content: ADVISOR_RULES + '\n' + PLAN_RULES },
+    { role: 'user', content: advisorContext(history) +
+      `\n\nUnits awaiting orders: ${idle.map(u => `${u.id} ${u.type} at (${u.x},${u.y})`).join('; ') || 'none'}` +
+      `\n\nGame messages since your last plan: ${aiMessages.join(' | ') || 'none'}` +
+      `\n\nYour orders the game refused last turn (a build is kept 8 turns unless urgent; builds must be in can_build): ${lastMissed.join('; ') || 'none'}` +
+      `\n\nYour recent notes: ${notes.map(n => `turn ${n.turn}: ${n.text}`).join(' | ') || 'none'}` +
+      `\n\nThe player's direction: ${direction() || 'none given: play to win'}` },
+  ];
+  aiMessages = [];
+  try {
+    const answer = await complete(messages, $('ai-think').value === 'on', true);
+    let plan;
+    try { plan = JSON.parse(answer.text.replace(/^```(json)?|```$/g, '').trim()); }
+    catch { throw new Error('The plan was not valid JSON.'); }
+    const missed = applyPlan(plan, rec);
+    if (missed.length) console.warn('AI plays: orders not taken: ' + JSON.stringify(missed));
+    lastMissed = missed;
+    const thread = currentThread(rec.turn)[0]?.thread ?? Date.now();
+    // Notes that say what a recent one said are dropped.
+    const words = t => new Set(String(t).toLowerCase().match(/[a-z]{3,}/g) || []);
+    const recent = advisorLog().filter(e => e.role === 'note').slice(-8).map(e => words(e.text));
+    for (const n of (plan.notes || []).slice(0, 1)) {
+      const w = words(n);
+      if (!w.size || recent.some(r => [...w].filter(x => r.has(x)).length >= 0.6 * w.size)) continue;
+      recent.push(w);
+      advisorSay({ role: 'note', turn: rec.turn, year: rec.year, text: String(n), thread });
+    }
+  } catch (e) {
+    advisorSay({ role: 'error', turn: rec.turn, year: rec.year, text: 'AI plays: ' + e.message + ' Its units get the game\'s own orders this turn.' });
+    for (const u of idle) Module._civwasm_order_unit(u.id, 'Z'.charCodeAt(0), 0, 0);
+  } finally {
+    planning = false;
+    driveStatus('');
+    Module._civwasm_ai_plan_ready();
+  }
+}
+
+// The game's dialogs while the AI plays: their text goes to the next plan;
+// the answer is the game's own preselected choice.
+Module.civwasmAiDialog = (text, preset, count) => {
+  const t = text.replace(/\s+/g, ' ').trim();
+  if (t) aiMessages.push(t.slice(0, 160));
+  if (aiMessages.length > 12) aiMessages.shift();
+  return preset >= 0 ? preset : count > 0 ? 0 : -1;
+};
+
+function driveStatus(text) {
+  for (const b of [$('ai-drive'), $('advisor-drive')]) {
+    b.classList.toggle('on', aiDriving);
+    b.textContent = aiDriving ? (text ? 'AI: ' + text.replace(/ turn \d+/, '') : 'AI playing') : 'AI plays';
+  }
+}
+function aiDrive(on) {
+  if (on && !aiOn()) {
+    const e = { role: 'error', turn: 0, year: 0, text: 'AI plays needs the AI advisor on, with an API key (Settings).' };
+    toastShow(e);
+    return;
+  }
+  aiDriving = on;
+  Module._civwasm_set_ai_drive(on ? 1 : 0);
+  driveStatus('');
+  const now = statsHistory().at(-1);
+  advisorSay({ role: 'note', turn: now?.turn ?? 0, year: now?.year ?? 0, text: on ? 'AI is playing.' : 'You have control.', thread: Date.now() });
+  toastShow({ role: 'note', turn: now?.turn ?? 0, year: now?.year ?? 0, text: on ? 'AI is playing (Alt+P to take back control).' : 'You have control.' });
+  if (on) {
+    if (!$('debug-stats').checked) { $('debug-stats').checked = true; $('debug-stats').dispatchEvent(new Event('change')); }
+    Module._civwasm_set_debug_stats(1);
+    plannedTurn = -1;
+    Module._civwasm_record_now();          // a record of this turn, and so its plan
+    Module._civwasm_ai_wake();
+  }
+}
+$('ai-drive').addEventListener('click', () => aiDrive(!aiDriving));
+$('advisor-drive').addEventListener('click', () => aiDrive(!aiDriving));
+
 // Shortcuts while playing, taken before the game sees them: Alt with - or _
 // zooms out, with = or + zooms in, and with ` ~ or * switches the map art.
 // By key position, so Shift and keyboard layouts don't matter.
@@ -1383,6 +1554,7 @@ const SHORTCUTS = { Minus: () => zoom(-1), NumpadSubtract: () => zoom(-1), Equal
 // The AI advisor: Alt+. pops up advice for this turn, Alt+/ opens the chat.
 SHORTCUTS.Period = () => { if ($('ai-on').checked) advise(); };
 SHORTCUTS.Slash = () => { if ($('ai-on').checked) advisorPanel($('advisor').hidden); };
+SHORTCUTS.KeyP = () => { if ($('ai-on').checked) aiDrive(!aiDriving); };
 function switchArt() {
   if (!haveSkin()) return;
   $('skin').value = $('skin').value === 'winciv' ? 'dos' : 'winciv';

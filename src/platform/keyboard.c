@@ -30,9 +30,29 @@ void reciv_key_event(uint16_t code)
     tail = next;
 }
 
+/* civ-wasm: AI plays answers the game's own questions (STATS.C); any
+ * other screen that waits for a key gets Escape after a moment. */
+extern int16_t civwasm_ai_drive;
+static uint64_t ai_since;
+
+static void ai_escape(void)
+{
+    if (!civwasm_ai_drive || head != tail) {
+        ai_since = 0;
+        return;
+    }
+    if (!ai_since)
+        ai_since = reciv_clock_ns();
+    else if (reciv_clock_ns() - ai_since > 700000000ull) {
+        ai_since = 0;
+        reciv_key_event(0x011B);
+    }
+}
+
 static int key_waiting(void)
 {
     reciv_spin();
+    ai_escape();
     return head != tail;
 }
 
@@ -40,8 +60,10 @@ static uint16_t key_take(void)
 {
     uint16_t code;
     reciv_poll();
-    while (head == tail)
+    while (head == tail) {
         reciv_wait();
+        ai_escape();
+    }
     code = buffer[head];
     head = (head + 1) % (BUFFER_KEYS + 1);
     return code;
