@@ -387,6 +387,8 @@ uc:                            /* unit command */
                     if (civwasm_auto_work[civ][jf] == 'a' || civwasm_auto_work[civ][jf] == 'l' ||
                         civwasm_auto_work[civ][jf] == 'A' || civwasm_auto_work[civ][jf] == 'L')
                         ek = auto_road_goal(civ, jf);   /* civ-wasm: Auto Road, Auto Rail */
+                    else if (civwasm_auto_work[civ][jf] == 'e')
+                        ek = auto_explore_goal(civ, jf);        /* civ-wasm: Auto Explore */
                     else if (civwasm_auto_work[civ][jf])
                         ek = auto_work_goal(civ, jf);   /* civ-wasm: Auto Irrigate, Auto Mine */
                     else if (U.goto_x != -1)
@@ -445,6 +447,20 @@ uc:                            /* unit command */
                             dl = jf & 127;
                             ke = 0;
                         }
+                        break;
+                    case 'E':
+                        /* civ-wasm: Auto Explore (PATH.C) */
+                        if (utypes[U.type].domain == 1) {
+                            show_msg("Aircraft cannot\nexplore on their own.\n", 100, 80);
+                            break;
+                        }
+                        civwasm_auto_work[civ][jf] = 'e';
+                        civwasm_road_to[civ][jf] = 0;
+                        U.status &= 0x30;
+                        U.goto_x = U.f8 = -1;
+                        if (auto_explore_goal(civ, jf) == -1)
+                            show_msg("Nothing left to\nexplore from here.\n", 100, 80);
+                        U.goto_x = U.f8 = -1;
                         break;
                     case 'I':
                     case 'M':
