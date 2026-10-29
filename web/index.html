@@ -57,6 +57,13 @@
   .history .save { padding: 4px 0; }
   #slots { margin-top: 8px; font-size: 13px; }
   .check { display: flex; gap: 8px; align-items: center; color: var(--muted); margin-top: 14px; }
+  #options section { margin-top: 18px; }
+  #options h3 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+  #options .field { margin-top: 8px; display: grid; grid-template-columns: 7.2em minmax(0, 1fr) auto; }
+  #options .field select { width: 100%; }
+  #options .check { align-items: flex-start; margin-top: 8px; color: var(--text); }
+  #options .check input { margin-top: 4px; }
+  #options .check small { display: block; color: var(--muted); font-size: 12px; line-height: 1.35; }
   .hint { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
   .hint button { padding: 3px 8px; font-size: 12px; margin-left: 6px; }
   #status { min-height: 1.5em; margin-top: 12px; color: var(--muted); }
@@ -117,7 +124,10 @@
   #settings .card { max-height: 100%; overflow: auto; padding: 18px 22px; }
   #settings .top { display: flex; justify-content: space-between; align-items: center; }
   #settings h1 { font-size: 20px; margin: 0; }
-  #settings .field { flex-wrap: wrap; }
+  #settings .card { max-width: 780px; }
+  @media (min-width: 760px) {
+    #settings #options { display: grid; grid-template-columns: 1fr 1fr; column-gap: 32px; }
+  }
   #settings select { min-width: 0; max-width: 100%; }
   body.playing .start-only { display: none; }
 </style>
@@ -161,21 +171,23 @@
       <span class="hint">A .zip from Download, or a CIVIL<i>n</i>.SVE with its .MAP</span>
     </div>
     <div id="options">
+    <section>
+    <h3>Display</h3>
     <label class="field">View
       <select id="view">
-        <option value="2">Fit window, zoom 2× (more map)</option>
-        <option value="2.5">Fit window, zoom 2.5×</option>
-        <option value="3">Fit window, zoom 3×</option>
-        <option value="4">Fit window, zoom 4×</option>
-        <option value="1.5">Fit window, zoom 1.5× (most map)</option>
+        <option value="2">Zoom 2×</option>
+        <option value="2.5">Zoom 2.5×</option>
+        <option value="3">Zoom 3×</option>
+        <option value="4">Zoom 4×</option>
+        <option value="1.5">Zoom 1.5×</option>
         <option value="classic">Classic 320×200</option>
       </select>
       <span class="playing-only"><button id="zoom-out" title="Zoom out (more map)">−</button><button id="zoom-in" title="Zoom in">+</button></span>
     </label>
-    <label class="field">Display
+    <label class="field">Pixels
       <select id="filter">
-        <option value="sharp">Crisp pixels</option>
-        <option value="nearest">Raw pixels (uneven at some sizes)</option>
+        <option value="sharp">Crisp</option>
+        <option value="nearest">Raw (uneven at some sizes)</option>
         <option value="hq4x">Smoothed (hq4x)</option>
         <option value="bilinear">Blurred (bilinear)</option>
       </select>
@@ -187,6 +199,9 @@
       </select>
     </label>
     <p class="hint" id="skin-hint" hidden><span id="skin-text"></span><button id="forget-skin" hidden>Forget it</button></p>
+    </section>
+    <section>
+    <h3>Speed</h3>
     <label class="field">Animations
       <select id="anim-speed">
         <option value="2.5">2.5× faster</option>
@@ -203,23 +218,30 @@
     </label>
     <label class="field">Enemy moves
       <select id="enemy-moves">
-        <option value="show">Show them</option>
-        <option value="fast">Show them fast</option>
-        <option value="skip">Skip them (no map jumps)</option>
+        <option value="show">Show</option>
+        <option value="fast">Show fast</option>
+        <option value="skip">Skip (no map jumps)</option>
       </select>
     </label>
-    <label class="field">Your automatic moves (GoTo, Road To, Auto)
+    <label class="field" title="Your units' GoTo, Road To and Auto orders">Auto moves
       <select id="own-moves">
-        <option value="show">Show them</option>
-        <option value="fast">Show them fast</option>
-        <option value="skip">Skip them (no map jumps)</option>
+        <option value="show">Show</option>
+        <option value="fast">Show fast</option>
+        <option value="skip">Skip (no map jumps)</option>
       </select>
     </label>
-    <label class="check"><input type="checkbox" id="city-blink" checked> Blink cities on the map that need a new build</label>
-    <label class="check"><input type="checkbox" id="refuse-emissaries"> Turn away other civilizations' emissaries without asking</label>
-    <label class="check"><input type="checkbox" id="better-default"> Better Default Unit: new cities build the best defender (Phalanx, Musketeers, Riflemen, Mech. Inf.)</label>
-    <label class="check"><input type="checkbox" id="no-barbarians"> No barbarians: no raids from the sea, no uprisings, no hordes from huts</label>
-    <label class="check"><input type="checkbox" id="autosave" checked> Autosave as you play (every game keeps its own save and the last 20 turns)</label>
+    </section>
+    <section>
+    <h3>Game rules</h3>
+    <label class="check"><input type="checkbox" id="better-default"><span>Better default unit<small>New cities build the best defender you know, not Militia</small></span></label>
+    <label class="check"><input type="checkbox" id="no-barbarians"><span>No barbarians<small>No raids from the sea, no uprisings, no hordes from huts</small></span></label>
+    <label class="check"><input type="checkbox" id="refuse-emissaries"><span>Turn away emissaries<small>Other civilizations' envoys are refused without asking</small></span></label>
+    <label class="check"><input type="checkbox" id="city-blink" checked><span>Blink cities that need a new build</span></label>
+    </section>
+    <section>
+    <h3>Saving</h3>
+    <label class="check"><input type="checkbox" id="autosave" checked><span>Autosave as you play<small>Each game keeps its latest save and the last 20 turns</small></span></label>
+    </section>
     </div>
     <label class="check"><input type="checkbox" id="skip-quiz" checked> Skip the copy-protection quiz</label>
     <div id="status">Starting…</div>
@@ -241,7 +263,6 @@
   <div class="card">
     <div class="top"><h1>Settings</h1><button id="settings-close">Close</button></div>
     <div id="settings-fields"></div>
-    <p class="hint" id="settings-skin" hidden>No Windows map art loaded: add civdata4.rsc on the start page.</p>
     <div class="row"><button id="to-start">Save and go to the start page</button></div>
     <p class="hint">The start page starts a new game or continues another of your games.</p>
   </div>
@@ -505,7 +526,7 @@ function refresh() {
   const skin = haveSkin();
   $('skin-hint').hidden = !skin && $('skin').value === 'dos';
   $('skin-text').textContent = skin ? 'Windows map art is loaded.' :
-    'No Windows map art yet: add civdata4.rsc or the Windows game\'s .zip above. Until then the map uses the DOS art.';
+    'No Windows map art yet: add civdata4.rsc or the Windows game\'s .zip on the start page. Until then the map uses the DOS art.';
   $('forget-skin').hidden = !skin || !!bundledSkin;
   status(ok ? 'Game files found in this browser. Ready to play.' : 'Choose your Civilization files to begin.');
 }
@@ -798,7 +819,6 @@ function start({ game, slot }) {
 const playing = () => document.body.classList.contains('playing');
 function settings(open) {
   $('settings').hidden = !open;
-  $('settings-skin').hidden = haveSkin();
   if (!open) $('canvas').focus();
 }
 $('settings-open').addEventListener('click', () => settings(true));

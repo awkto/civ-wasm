@@ -77,6 +77,11 @@ The server holding the zip must allow cross-origin requests.
   network is built, they go to level 2: more direct links between each city
   and its nearest neighbours (up to six, within 12 tiles), so there are
   several ways between cities. Rail To and Auto Rail need Railroad.
+- **Auto Explore (Shift+E).** Any land or sea unit heads for the nearest
+  known tile that borders unexplored land or sea, on its own landmass or
+  sea, choosing again at every move, until nothing is left to explore
+  there; then it asks for orders. Explorers don't share goals and pass over
+  tiles that others hold. It is on the Orders menu too.
 - **Better Default Unit.** A setting: new cities start on the best
   defender you know (Phalanx, Musketeers, Riflemen, Mech. Inf.) instead of
   Militia until Gunpowder.
