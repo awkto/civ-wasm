@@ -93,9 +93,10 @@ The server holding the zip must allow cross-origin requests.
   turn, and a log of your decisions and what came of them. The record is
   kept with the game and can be downloaded as JSON.
 - **AI advisor.** A setting, off by default: a language model reads the
-  game stats and advises at the start of every turn or every few turns, or
-  when you press Advise now, in a panel over the map where you can also ask
-  it questions. It uses any OpenAI-compatible endpoint (Fireworks by
+  game stats and advises at the start of every turn or every few turns: a
+  few short lines that pop up in the corner and fade. The Advisor button
+  opens the chat, for Advise now and questions; each piece of advice starts
+  a fresh thread, so the model only sees the game and that exchange. It uses any OpenAI-compatible endpoint (Fireworks by
   default) with your own API key, which stays in your browser; the page
   calls the endpoint directly. Its instructions carry this game's rules
   (growth, disorder, governments, buildings), read from the source.

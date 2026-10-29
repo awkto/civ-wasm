@@ -98,8 +98,17 @@
   #advisor form input { flex: 1; min-width: 0; font: inherit; background: #222836; color: var(--text);
     border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; }
   #advisor form button { padding: 3px 10px; font-size: 12px; }
-  #advisor.folded #advisor-log, #advisor.folded form { display: none; }
-  #advisor.folded .head { border-bottom: 0; }
+  #advisor-toast { position: fixed; right: 12px; bottom: 12px; z-index: 14; max-width: min(340px, calc(100vw - 24px));
+    background: rgba(16,19,26,.8); backdrop-filter: blur(4px); text-shadow: 0 1px 2px #000; border: 1px solid rgba(217,180,90,.35); border-radius: 8px;
+    padding: 6px 26px 6px 10px; font-size: 13px; box-sizing: border-box; cursor: pointer;
+    opacity: 0; transform: translateY(8px); pointer-events: none; transition: opacity .4s, transform .4s; }
+  #advisor-toast.shown { opacity: 1; transform: none; pointer-events: auto; }
+  #advisor-toast ul { margin: 2px 0; padding-left: 18px; }
+  #advisor-toast p { margin: 2px 0; }
+  #advisor-toast .muted { color: var(--muted); font-size: 11px; }
+  #advisor-toast .err { color: var(--error); }
+  #advisor-toast-close { position: absolute; top: 2px; right: 2px; padding: 0 6px; font-size: 14px; line-height: 1.3;
+    background: none; border: 0; color: var(--muted); }
   #stats { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.6); display: flex;
     align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
   #stats[hidden] { display: none; }
@@ -231,6 +240,12 @@
           <option value="0">only when asked</option>
         </select>
       </label>
+      <label class="field">Thinking
+        <select id="ai-think">
+          <option value="off">Off: answers in seconds</option>
+          <option value="on">On: slower (up to minutes), may be better</option>
+        </select>
+      </label>
       <p class="hint"><button id="ai-check" type="button">Check key</button> <span id="ai-check-result">Any OpenAI-compatible endpoint works. Each request is billed to your key.</span></p>
     </div>
     <label class="check"><input type="checkbox" id="autosave" checked> Autosave as you play (every game keeps its own save and the last 20 turns)</label>
@@ -248,14 +263,16 @@
 </div>
 <div id="toolbar">
   <button id="settings-open" title="Settings: zoom, display, map art, speed, enemy moves; back to the start page">Settings</button>
+  <button id="advisor-open" title="The AI advisor: its latest advice, and questions" hidden>Advisor</button>
   <button id="stats-open" title="Debug game stats: the record of every turn" hidden>Stats</button>
   <button id="fullscreen" title="Fullscreen (F11)">Fullscreen</button>
 </div>
 <!-- AI advisor: the model's advice and the player's questions. -->
+<div id="advisor-toast"><button id="advisor-toast-close" title="Dismiss">×</button><div id="advisor-toast-body"></div></div>
 <div id="advisor" hidden>
   <div class="head"><b>Advisor</b><span class="muted" id="advisor-status"></span>
-    <button id="advisor-now" title="Ask the advisor about this turn">Advise now</button>
-    <button id="advisor-fold" title="Fold or unfold">−</button></div>
+    <button id="advisor-now" title="Fresh advice for this turn">Advise now</button>
+    <button id="advisor-close" title="Close (Esc)">Close</button></div>
   <div id="advisor-log"></div>
   <form id="advisor-form"><input id="advisor-q" placeholder="Ask: what should Rome build?" autocomplete="off"><button>Ask</button></form>
 </div>
@@ -803,7 +820,6 @@ function start({ game, slot }) {
   Module.callMain(args);
   zoomTitles();
   aiFields();
-  renderAdvisor();
   // SDL sizes the canvas from its default window until the page resizes;
   // tell it about the real size now that the window exists.
   dispatchEvent(new Event('resize'));
@@ -1080,20 +1096,24 @@ Rules of this game (not Civ II or later):
 - Corruption grows with distance from the Palace; a Courthouse halves it.
 - Wonders are built once in the world; one built elsewhere can no longer be built.
 - Coordinates are tiles (x, y) on an 80x50 map; x wraps around.
-How to answer: be concrete and short. Name cities, units and numbers from the data. Give the 2 to 5 actions that matter most now, most urgent first, each one line, as a list starting with "- ". Point out problems early (disorder next turn, starvation, wasted production, idle settlers, weak defence near rivals, a better research or build order). No preamble, no restating the data, no generic tips.`;
+How to answer: be concrete and brief. Name cities, units and numbers from the data. Point out problems early (disorder next turn, starvation, wasted production, idle settlers, weak defence near rivals, a better research or build order). No preamble, no restating the data, no generic tips.`;
+
+const ADVISE_SHORT = `Give at most 3 actions, the most urgent first, each one line of under 15 words, as a list starting with "- ". If nothing needs doing, say so in one line.`;
+const ANSWER_SHORT = `Answer the question in 1 to 3 short sentences or bullets.`;
 
 const AI_DEFAULTS = { endpoint: 'https://api.fireworks.ai/inference/v1', model: 'accounts/fireworks/models/deepseek-v4p1-flash' };
 const aiSetting = (id, fallback) => { try { return localStorage.getItem('civ-' + id) ?? fallback; } catch { return fallback; } };
-for (const [id, key, fallback] of [['ai-endpoint', 'ai-endpoint', AI_DEFAULTS.endpoint], ['ai-key', 'ai-key', ''],
-                                   ['ai-model', 'ai-model', AI_DEFAULTS.model], ['ai-every', 'ai-every', '5']]) {
-  $(id).value = aiSetting(key, fallback);
-  $(id).addEventListener('change', () => { try { localStorage.setItem('civ-' + key, $(id).value.trim()); } catch {} });
+for (const [id, fallback] of [['ai-endpoint', AI_DEFAULTS.endpoint], ['ai-key', ''], ['ai-model', AI_DEFAULTS.model],
+                              ['ai-every', '5'], ['ai-think', 'off']]) {
+  $(id).value = aiSetting(id, fallback);
+  $(id).addEventListener('change', () => { try { localStorage.setItem('civ-' + id, $(id).value.trim()); } catch {} });
 }
 $('ai-on').checked = aiSetting('ai-on', 'off') === 'on';
 const aiOn = () => $('ai-on').checked && $('ai-key').value.trim();
 function aiFields() {
   $('ai-fields').hidden = !$('ai-on').checked;
-  $('advisor').hidden = !(playing() && $('ai-on').checked);
+  $('advisor-open').hidden = !$('ai-on').checked;
+  if (!$('ai-on').checked) { advisorPanel(false); toastHide(); }
 }
 $('ai-on').addEventListener('change', () => {
   try { localStorage.setItem('civ-ai-on', $('ai-on').checked ? 'on' : 'off'); } catch {}
@@ -1104,7 +1124,6 @@ $('ai-on').addEventListener('change', () => {
   }
   aiFields();
 });
-aiFields();
 
 // Ask the endpoint which models the key can use, and check the key on the way.
 $('ai-check').addEventListener('click', async () => {
@@ -1120,12 +1139,21 @@ $('ai-check').addEventListener('click', async () => {
   }
 });
 
+// The advice so far. Each piece of advice starts a thread; questions join
+// the latest thread while it is recent (THREAD_TURNS), and only that thread
+// goes back to the model, so the context never grows past one exchange.
+const THREAD_TURNS = 3;
 const advisorFile = () => `${GAMES}/${activeGame}/advisor.json`;
 const advisorLog = () => activeGame ? readJson(advisorFile(), []) : [];
 function advisorSay(entry) {
   const log = [...advisorLog(), { ...entry, at: Date.now() }];
   writeJson(advisorFile(), log.slice(-200));
   renderAdvisor();
+}
+function currentThread(turn) {
+  const log = advisorLog(), last = log.at(-1);
+  if (!last || last.thread === undefined || turn - last.turn >= THREAD_TURNS) return [];
+  return log.filter(e => e.thread === last.thread);
 }
 
 // The model's reply as HTML: escaped, with lists and **bold**.
@@ -1141,18 +1169,50 @@ function adviceHtml(text) {
   if (list) html += '</ul>';
   return html.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
 }
+const entryHtml = e => e.role === 'user'
+  ? `<div class="q"><span class="muted">you:</span> ${esc(e.text)}</div>`
+  : `<div class="${e.role === 'error' ? 'a err' : 'a'}"><div class="muted">${e.role === 'error' ? 'Error' : 'Advisor'}, turn ${e.turn} (${yearText(e.year)})</div>${e.role === 'error' ? esc(e.text) : adviceHtml(e.text)}</div>`;
 
+// The chat panel shows the latest thread.
 function renderAdvisor() {
-  const log = advisorLog(), body = $('advisor-log');
-  body.innerHTML = log.slice(-30).map(e => e.role === 'user'
-    ? `<div class="q"><span class="muted">T${e.turn} you:</span> ${esc(e.text)}</div>`
-    : `<div class="${e.role === 'error' ? 'a err' : 'a'}"><div class="muted">${e.role === 'error' ? 'Error' : 'Advisor'}, turn ${e.turn} (${yearText(e.year)})</div>${e.role === 'error' ? esc(e.text) : adviceHtml(e.text)}</div>`).join('')
-    || '<p class="muted">The advisor speaks at the start of a turn (see Settings for how often), or press Advise now, or ask below.</p>';
+  const log = advisorLog(), last = log.at(-1), body = $('advisor-log');
+  const thread = last ? log.filter(e => e.thread === last.thread || (last.thread === undefined && e === last)) : [];
+  body.innerHTML = thread.map(entryHtml).join('')
+    || '<p class="muted">Advice pops up at the start of a turn (Settings sets how often). Press Advise now, or ask a question below.</p>';
   body.scrollTop = body.scrollHeight;
 }
+function advisorPanel(open) {
+  $('advisor').hidden = !open;
+  if (open) { toastHide(); renderAdvisor(); $('advisor-q').focus(); }
+  else $('canvas').focus();
+}
+
+// The pop-up: the latest advice, faded in over the map's corner and gone
+// after a few seconds (longer for longer advice; held while the pointer is
+// on it). A click opens the chat.
+let toastTimer;
+function toastShow(entry) {
+  if (!$('advisor').hidden) return;
+  $('advisor-toast-body').innerHTML = entryHtml(entry);
+  $('advisor-toast').classList.add('shown');
+  toastArm();
+}
+function toastArm() {
+  clearTimeout(toastTimer);
+  const words = $('advisor-toast-body').innerText.split(/\s+/).length;
+  toastTimer = setTimeout(toastHide, Math.min(12000, 3000 + words * 150));
+}
+function toastHide() {
+  clearTimeout(toastTimer);
+  $('advisor-toast').classList.remove('shown');
+}
+$('advisor-toast').addEventListener('pointerenter', () => clearTimeout(toastTimer));
+$('advisor-toast').addEventListener('pointerleave', toastArm);
+$('advisor-toast').addEventListener('click', e => { if (e.target !== $('advisor-toast-close')) advisorPanel(true); });
+$('advisor-toast-close').addEventListener('click', toastHide);
 
 // The game as the model sees it: the latest record, a digest of the last
-// turns, and the latest advice so it can follow up.
+// turns, and the warnings the stats report shows.
 function advisorContext(history) {
   const now = history.at(-1), recent = history.slice(-11);
   const digest = recent.slice(0, -1).map((t, i) => {
@@ -1169,35 +1229,68 @@ function advisorContext(history) {
     `Warnings the game computed: ${warnings(history).map(w => w.text).join('; ') || 'none'}`;
 }
 
+// One request, given up after `wait` ms. Thinking off asks reasoning models
+// to answer at once (reasoning_effort "none"); an endpoint that rejects the
+// field gets the request again without it.
+async function complete(messages, think) {
+  const url = $('ai-endpoint').value.replace(/\/+$/, '') + '/chat/completions';
+  const body = { model: $('ai-model').value.trim() || AI_DEFAULTS.model, messages, temperature: 0.4, max_tokens: think ? 6000 : 500 };
+  if (!think) body.reasoning_effort = 'none';
+  for (let attempt = 0; ; attempt++) {
+    const stop = new AbortController(), timer = setTimeout(() => stop.abort(), think ? 150000 : 45000);
+    try {
+      const r = await fetch(url, { method: 'POST', signal: stop.signal, body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + $('ai-key').value.trim() } });
+      if (r.status === 400 && body.reasoning_effort) {
+        const t = await r.text();
+        if (/reasoning/i.test(t)) { delete body.reasoning_effort; continue; }
+        throw new Error(`400: ${t.slice(0, 300)}`);
+      }
+      if (r.status >= 500 && attempt < 1) continue;
+      if (!r.ok) throw new Error(`${r.status}: ${(await r.text()).slice(0, 300)}`);
+      const data = await r.json();
+      const text = (data.choices?.[0]?.message?.content || '').replace(/<think>[\s\S]*?(<\/think>|$)/g, '').trim();
+      if (!text) throw new Error('The model sent no answer' + (data.choices?.[0]?.finish_reason === 'length' ? ' (it ran out of room while thinking).' : '.'));
+      return { text, model: data.model, tokens: data.usage?.total_tokens };
+    } catch (e) {
+      if (e.name === 'AbortError') {
+        if (attempt < 1) continue;
+        throw new Error(`No answer in ${think ? 150 : 45} seconds (tried twice).`);
+      }
+      if (e instanceof TypeError && attempt < 1) continue;       // network
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+}
+
 let advisorBusy = false;
 async function advise(question) {
-  const history = statsHistory();
-  if (!history.length) return advisorSay({ role: 'error', turn: 0, year: 0, text: 'No game record yet: end a turn first (Debug game stats records the start of each turn).' });
-  if (!$('ai-key').value.trim()) return advisorSay({ role: 'error', turn: history.at(-1).turn, year: history.at(-1).year, text: 'No API key: add one under Settings, AI advisor.' });
+  const history = statsHistory(), now = history.at(-1);
+  const fail = text => { const e = { role: 'error', turn: now?.turn ?? 0, year: now?.year ?? 0, text }; advisorSay(e); toastShow(e); };
+  if (!now) return fail('No game record yet: end a turn first (Debug game stats records the start of each turn).');
+  if (!$('ai-key').value.trim()) return fail('No API key: add one under Settings, AI advisor.');
   if (advisorBusy) return;
   advisorBusy = true;
-  $('advisor-status').textContent = 'Thinking…';
-  const now = history.at(-1), past = advisorLog().filter(e => e.role !== 'error').slice(-6);
-  if (question) advisorSay({ role: 'user', turn: now.turn, year: now.year, text: question });
+  $('advisor-status').textContent = 'thinking…';
+  // Advice starts a new thread; a question carries on the recent one.
+  const before = question ? currentThread(now.turn).filter(e => e.role !== 'error') : [];
+  const thread = before.length ? before[0].thread : Date.now();
+  if (question) advisorSay({ role: 'user', turn: now.turn, year: now.year, text: question, thread });
   const messages = [
-    { role: 'system', content: ADVISOR_RULES },
+    { role: 'system', content: ADVISOR_RULES + '\n' + (question ? ANSWER_SHORT : ADVISE_SHORT) },
     { role: 'user', content: advisorContext(history) },
-    ...past.map(e => ({ role: e.role === 'user' ? 'user' : 'assistant', content: `(turn ${e.turn}) ${e.text}` })),
+    ...before.slice(-8).map(e => ({ role: e.role === 'user' ? 'user' : 'assistant', content: e.text })),
     { role: 'user', content: question || `It is the start of turn ${now.turn}. What should I do now?` },
   ];
   try {
-    const r = await fetch($('ai-endpoint').value.replace(/\/+$/, '') + '/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + $('ai-key').value.trim() },
-      body: JSON.stringify({ model: $('ai-model').value.trim() || AI_DEFAULTS.model, messages, max_tokens: 2000, temperature: 0.4 }),
-    });
-    if (!r.ok) throw new Error(`${r.status}: ${(await r.text()).slice(0, 300)}`);
-    const data = await r.json();
-    const text = (data.choices?.[0]?.message?.content || '').replace(/<think>[\s\S]*?(<\/think>|$)/g, '').trim();
-    if (!text) throw new Error('The model sent no answer' + (data.choices?.[0]?.finish_reason === 'length' ? ' (it ran out of tokens while thinking).' : '.'));
-    advisorSay({ role: 'assistant', turn: now.turn, year: now.year, text, model: data.model, tokens: data.usage?.total_tokens });
+    const answer = await complete(messages, $('ai-think').value === 'on');
+    const entry = { role: 'assistant', turn: now.turn, year: now.year, thread, question: !!question, ...answer };
+    advisorSay(entry);
+    if (!question) toastShow(entry);
   } catch (e) {
-    advisorSay({ role: 'error', turn: now.turn, year: now.year, text: e.message });
+    fail(e.message);
   } finally {
     advisorBusy = false;
     $('advisor-status').textContent = '';
@@ -1208,13 +1301,15 @@ async function advise(question) {
 function advisorTurn(rec) {
   const every = parseInt($('ai-every').value, 10);
   if (!aiOn() || !every) return;
-  const last = advisorLog().filter(e => e.role === 'assistant').at(-1);
+  const last = advisorLog().filter(e => e.role === 'assistant' && !e.question).at(-1);
   if (last && last.turn >= rec.turn) return;
   if (last && rec.turn - last.turn < every) return;
   advise();
 }
 
 $('advisor-now').addEventListener('click', () => advise());
+$('advisor-open').addEventListener('click', () => advisorPanel($('advisor').hidden));
+$('advisor-close').addEventListener('click', () => advisorPanel(false));
 $('advisor-form').addEventListener('submit', e => {
   e.preventDefault();
   const q = $('advisor-q').value.trim();
@@ -1222,16 +1317,10 @@ $('advisor-form').addEventListener('submit', e => {
   $('advisor-q').value = '';
   advise(q);
 });
-$('advisor-fold').addEventListener('click', () => {
-  $('advisor').classList.toggle('folded');
-  $('advisor-fold').textContent = $('advisor').classList.contains('folded') ? '+' : '−';
-  try { localStorage.setItem('civ-advisor-folded', $('advisor').classList.contains('folded') ? 'on' : 'off'); } catch {}
-  if ($('advisor').classList.contains('folded')) $('canvas').focus();
-});
-if (aiSetting('advisor-folded', 'off') === 'on') { $('advisor').classList.add('folded'); $('advisor-fold').textContent = '+'; }
 // Keys typed in the panel are the page's, not the game's.
 for (const t of ['keydown', 'keyup', 'keypress'])
-  $('advisor').addEventListener(t, e => { e.stopPropagation(); if (t === 'keydown' && e.key === 'Escape') $('canvas').focus(); });
+  $('advisor').addEventListener(t, e => { e.stopPropagation(); if (t === 'keydown' && e.key === 'Escape') advisorPanel(false); });
+aiFields();
 
 // Shortcuts while playing, taken before the game sees them: Alt with - or _
 // zooms out, with = or + zooms in, and with ` ~ or * switches the map art.
