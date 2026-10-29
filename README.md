@@ -92,6 +92,13 @@ The server holding the zip must allow cross-origin requests.
   shows it: what needs attention now, the empire and each city turn by
   turn, and a log of your decisions and what came of them. The record is
   kept with the game and can be downloaded as JSON.
+- **AI advisor.** A setting, off by default: a language model reads the
+  game stats and advises at the start of every turn or every few turns, or
+  when you press Advise now, in a panel over the map where you can also ask
+  it questions. It uses any OpenAI-compatible endpoint (Fireworks by
+  default) with your own API key, which stays in your browser; the page
+  calls the endpoint directly. Its instructions carry this game's rules
+  (growth, disorder, governments, buildings), read from the source.
 - **Display filters.** Crisp pixels, raw pixels, hq4x smoothing or bilinear, always
   at the original 4:3 shape. Fullscreen is in the toolbar (or F11).
 
