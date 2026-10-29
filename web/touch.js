@@ -51,6 +51,7 @@ const Touch = (() => {
     ['Irrig.', 'Irrigate (i)', () => key(letter('i'))],
     ['Mine', 'Build a mine (m)', () => key(letter('m'))],
     ['Home', 'Make the nearest city its home (h)', () => key(letter('h'))],
+    ['Explore', 'Auto Explore: the unit explores on its own (Shift+E)', () => key(letter('E'))],
     ['Centre', 'Centre the map on the unit (c)', () => key(letter('c'))],
     ['Orders…', 'The game\'s Orders menu, all orders for this unit', () => key(K.altO)],
   ];
