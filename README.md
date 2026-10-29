@@ -61,10 +61,14 @@ The server holding the zip must allow cross-origin requests.
   road already there and stop for orders at the target, before a river they
   cannot bridge yet, or when another civilization's unit comes next to
   them.
-- **Auto Irrigate (Shift+I) and Auto Mine (Shift+M).** Settlers improve
-  the land around where you gave the order, nearest tiles first, out to 6
-  tiles: irrigation on Desert, Plains, Grassland and River wherever water
-  reaches (each new irrigated tile lets the next one in), mines on Hills.
+- **Auto Irrigate (Shift+I) and Auto Mine (Shift+M).** Auto Irrigate
+  works for your cities on that landmass: the tiles they can work, the
+  nearest city first, tiles a city is working before the rest, and cities
+  that already have as many irrigated tiles as citizens only after the
+  others. Auto Mine improves the land around where you gave the order,
+  nearest tiles first, out to 6 tiles. Irrigation goes on Desert, Plains,
+  Grassland and River wherever water reaches (each new irrigated tile lets
+  the next one in), mines on Hills.
   Other terrain is left alone. Enemies don't interrupt them; when nothing
   is left to do they ask for orders. Auto Mine given again where no Hills
   are left is level 2: it mines the Mountains around. Activating them gives them back to

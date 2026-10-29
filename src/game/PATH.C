@@ -510,9 +510,10 @@ stop:
     return -1;
 }
 
-/* civ-wasm: Auto Irrigate (Shift+I) and Auto Mine (Shift+M). The settlers
- * improve the tiles around where they got the order, nearest that place
- * first, out to 6 tiles, on that landmass. The tiles are the game's own
+/* civ-wasm: Auto Irrigate (Shift+I) and Auto Mine (Shift+M). Auto Mine
+ * improves the tiles around where it was given, nearest that place first,
+ * out to 6 tiles; Auto Irrigate the tiles of the player's cities. Both keep
+ * to the landmass. The tiles are the game's own
  * choice for computer players' settlers (CONTROL.C work_tile): Hills are
  * mined, and Desert, Plains, Grassland and River are irrigated where water
  * reaches them; Forest, Mountains, Swamp, Jungle, Tundra and Arctic are
@@ -558,6 +559,51 @@ static int auto_wanted(int order, int x, int y)
     return work_tile(x, y) == (order == 'i' ? 1 : 2);
 }
 
+/* Auto Irrigate works for the player's cities on this landmass: the tiles
+ * of their radius, the nearest first, a tile the city works before one it
+ * does not, and a city with as many irrigated tiles as citizens only once
+ * the others have theirs. */
+extern struct city townbuf[];
+extern int radius_dx[21], radius_dy[21];
+
+static int irrigate_target(int player, int unit, int region, int *bx, int *by)
+{
+    struct unit *u = &armydata[player][unit];
+    int best = 32767, c, i, x, y, irrigated, d, score;
+    long worked;
+    for (c = 0; c < 128; c++) {
+        if (townbuf[c].status == -1 || townbuf[c].owner != player || region_key(townbuf[c].x, townbuf[c].y) != region)
+            continue;
+        irrigated = 0;
+        for (i = 0; i < 20; i++) {
+            x = wrap_x(townbuf[c].x + radius_dx[i]);
+            y = townbuf[c].y + radius_dy[i];
+            if (y >= 0 && y < 50 && (map_flags(x, y) & 2))
+                irrigated++;
+        }
+        worked = *(long *) &townbuf[c].rest[4];
+        for (i = 0; i < 20; i++) {
+            x = wrap_x(townbuf[c].x + radius_dx[i]);
+            y = townbuf[c].y + radius_dy[i];
+            if (y < 1 || y > 48 || !(map_visible_to[x * 50 + y] & (1 << player)))
+                continue;
+            if (terrain_at(x, y) == 10 || region_key(x, y) != region || !auto_wanted('i', x, y))
+                continue;
+            d = map_owner(x, y);
+            if ((d != -1 && d != player) || auto_taken(player, unit, x, y))
+                continue;
+            d = wrap_dist(u->x, x) > abs(u->y - y) ? wrap_dist(u->x, x) : abs(u->y - y);
+            score = 4 * d - (((worked >> i) & 1) ? 3 : 0) + (irrigated >= townbuf[c].size ? 60 : 0);
+            if (score < best) {
+                best = score;
+                *bx = x;
+                *by = y;
+            }
+        }
+    }
+    return best != 32767;
+}
+
 int auto_work_goal(int player, int unit)
 {
     struct unit *u = &armydata[player][unit];
@@ -568,6 +614,11 @@ int auto_work_goal(int player, int unit)
     /* Work under way goes on. */
     if ((u->status & (kind == 1 ? 0x40 : 0x80)) && auto_wanted(order, u->x, u->y))
         return key;
+    if (order == 'i') {
+        if (!irrigate_target(player, unit, region_key(u->x, u->y), &bx, &by))
+            goto stop;
+        goto chosen;
+    }
     for (dy = -6; dy <= 6; dy++)
         for (dx = -6; dx <= 6; dx++) {
             x = wrap_x(ax + dx);
@@ -589,6 +640,7 @@ int auto_work_goal(int player, int unit)
         }
     if (bx == -1)
         goto stop;
+chosen:
     if (bx == u->x && by == u->y)
         return key;
     u->goto_x = (char) bx;
