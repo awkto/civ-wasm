@@ -236,6 +236,14 @@ rd:                            /* redraw map and units */
                         advice(civ, jf);
                         wy = 1;
                     }
+                    if (civwasm_ai_drive) {
+                        ek = civwasm_ai_key(civ, jf);   /* civ-wasm: AI plays: the plan's order, Enter to end the turn */
+                        if (jf < 128 && ++wi > 4) {
+                            ek = 32;
+                            U.goto_x = U.f8 = -1;
+                        }
+                        goto cmd;
+                    }
                     blink_unit(civ, jf, vj, tl);
                     if (jf != 128)
                         xh = 1;

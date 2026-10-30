@@ -134,9 +134,69 @@
   #settings .card { max-width: 780px; }
   @media (min-width: 760px) {
     #settings #options { display: grid; grid-template-columns: 1fr 1fr; column-gap: 32px; }
+    #settings #options section.wide { grid-column: 1 / -1; }
+    #settings #ai-fields { max-width: 560px; }
   }
   #settings select { min-width: 0; max-width: 100%; }
   body.playing .start-only { display: none; }
+  #ai-fields { margin-left: 26px; }
+  #ai-fields input { width: 100%; box-sizing: border-box; min-width: 0; font: inherit; background: #222836; color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; }
+  #advisor { position: fixed; right: 8px; bottom: 8px; z-index: 15; width: min(420px, calc(100vw - 16px));
+    max-height: 55vh; display: flex; flex-direction: column; background: rgba(22,26,34,.94);
+    border: 1px solid var(--border); border-radius: 8px; font-size: 13px; box-sizing: border-box; }
+  #advisor[hidden] { display: none; }
+  #advisor .head { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  #advisor .head b { color: var(--accent); flex: 1; }
+  #advisor .head button { padding: 2px 10px; font-size: 12px; }
+  #advisor-log { overflow: auto; padding: 4px 10px; flex: 1; }
+  #advisor-log .a, #advisor-log .q { margin: 8px 0; }
+  #advisor-log .q { color: var(--accent); }
+  #advisor-log .note { color: #b9c7d8; font-style: italic; margin: 4px 0; }
+  #advisor-direction { margin: 6px 8px 0; font: inherit; font-size: 12px; background: #222836; color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; }
+  #ai-drive.on, #advisor-drive.on { background: #2f6b3a; border-color: #4f9a5c; opacity: 1; }
+  #advisor-log .err { color: var(--error); }
+  #advisor-log ul { margin: 2px 0; padding-left: 18px; }
+  #advisor-log p { margin: 2px 0; }
+  #advisor-log .muted, #advisor .muted { color: var(--muted); font-size: 12px; }
+  #advisor form { display: flex; gap: 6px; padding: 6px 8px; border-top: 1px solid var(--border); }
+  #advisor form input { flex: 1; min-width: 0; font: inherit; background: #222836; color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; }
+  #advisor form button { padding: 3px 10px; font-size: 12px; }
+  #advisor-toast { position: fixed; right: 12px; bottom: 12px; z-index: 14; max-width: min(340px, calc(100vw - 24px));
+    background: rgba(16,19,26,.8); backdrop-filter: blur(4px); text-shadow: 0 1px 2px #000; border: 1px solid rgba(217,180,90,.35); border-radius: 8px;
+    padding: 6px 26px 6px 10px; font-size: 13px; box-sizing: border-box; cursor: pointer;
+    opacity: 0; transform: translateY(8px); pointer-events: none; transition: opacity .4s, transform .4s; }
+  #advisor-toast.shown { opacity: 1; transform: none; pointer-events: auto; }
+  #advisor-toast ul { margin: 2px 0; padding-left: 18px; }
+  #advisor-toast p { margin: 2px 0; }
+  #advisor-toast .muted { color: var(--muted); font-size: 11px; }
+  #advisor-toast .err { color: var(--error); }
+  #advisor-toast-close { position: absolute; top: 2px; right: 2px; padding: 0 6px; font-size: 14px; line-height: 1.3;
+    background: none; border: 0; color: var(--muted); }
+  #stats { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.6); display: flex;
+    align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
+  #stats[hidden] { display: none; }
+  #stats .card { max-width: 1100px; height: 100%; display: flex; flex-direction: column; padding: 16px 20px; }
+  #stats .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  #stats h1 { font-size: 20px; margin: 0; }
+  #stats .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
+  #stats .tabs button { padding: 4px 12px; font-size: 13px; }
+  #stats .tabs button.on { background: var(--accent); color: #1a1505; border-color: var(--accent); }
+  #stats-body { flex: 1; overflow: auto; font-size: 13px; }
+  #stats table { border-collapse: collapse; width: 100%; }
+  #stats th, #stats td { text-align: left; padding: 3px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  #stats th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-weight: 600; }
+  #stats .bad { color: var(--error); }
+  #stats .warn { color: var(--accent); }
+  #stats .good { color: #7cc47a; }
+  #stats .muted { color: var(--muted); }
+  #stats h2 { font-size: 14px; margin: 14px 0 4px; color: var(--accent); }
+  #stats ul { margin: 2px 0 8px; padding-left: 20px; }
+  #stats .city-pick { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  #stats .city-pick button { padding: 3px 10px; font-size: 13px; }
+  #stats .city-pick button.on { border-color: var(--accent); color: var(--accent); }
 </style>
 </head>
 <body>
@@ -252,6 +312,33 @@
     <h3>Saving</h3>
     <label class="check"><input type="checkbox" id="autosave" checked><span>Autosave as you play<small>Each game keeps its latest save and the last 20 turns</small></span></label>
     </section>
+    <section class="wide">
+    <h3>Guide (preview)</h3>
+    <label class="check"><input type="checkbox" id="debug-stats"><span>Debug game stats<small>Records every turn: cities, food, rates, government, treaties, battles. Shown under Stats</small></span></label>
+    <label class="check"><input type="checkbox" id="ai-on"><span>AI advisor<small>A language model reads the game stats and advises, with your own API key</small></span></label>
+    <div id="ai-fields" hidden>
+      <label class="field">Endpoint <input type="url" id="ai-endpoint" spellcheck="false" autocomplete="off"></label>
+      <label class="field">API key <input type="password" id="ai-key" spellcheck="false" autocomplete="off" placeholder="kept in this browser only"></label>
+      <label class="field">Model <input type="text" id="ai-model" list="ai-models" spellcheck="false" autocomplete="off"></label>
+      <datalist id="ai-models"></datalist>
+      <label class="field">Advise
+        <select id="ai-every">
+          <option value="1">every turn</option>
+          <option value="3">every 3 turns</option>
+          <option value="5">every 5 turns</option>
+          <option value="10">every 10 turns</option>
+          <option value="0">only when asked</option>
+        </select>
+      </label>
+      <label class="field">Thinking
+        <select id="ai-think">
+          <option value="off">Off: answers in seconds</option>
+          <option value="on">On: slower (up to minutes), may be better</option>
+        </select>
+      </label>
+      <p class="hint"><button id="ai-check" type="button">Check key</button> <span id="ai-check-result">Any OpenAI-compatible endpoint works. Each request is billed to your key.</span></p>
+    </div>
+    </section>
     </div>
     <label class="check" id="quiz-row"><input type="checkbox" id="skip-quiz" checked><span>Skip the copy-protection quiz</span></label>
     </details>
@@ -266,7 +353,30 @@
 </div>
 <div id="toolbar">
   <button id="settings-open" title="Settings: zoom, display, map art, speed, enemy moves; back to the start page">Settings</button>
+  <button id="ai-drive" title="Let the AI play your civilization, or take control back (Alt+P)" hidden>AI plays</button>
+  <button id="advisor-open" title="The AI advisor: its latest advice, and questions (Alt+/; Alt+. for quick advice)" hidden>Advisor</button>
+  <button id="stats-open" title="Debug game stats: the record of every turn" hidden>Stats</button>
   <button id="fullscreen" title="Fullscreen (F11)">Fullscreen</button>
+</div>
+<!-- AI advisor: the model's advice and the player's questions. -->
+<div id="advisor-toast"><button id="advisor-toast-close" title="Dismiss">×</button><div id="advisor-toast-body"></div></div>
+<div id="advisor" hidden>
+  <div class="head"><b>Advisor</b><span class="muted" id="advisor-status"></span>
+    <button id="advisor-drive" title="Let the AI play your civilization, or take control back (Alt+P)">AI plays</button>
+    <button id="advisor-now" title="Fresh advice for this turn (Alt+.)">Advise now</button>
+    <button id="advisor-close" title="Close (Esc)">Close</button></div>
+  <input id="advisor-direction" placeholder="Direction for the AI: e.g. grow fast, science first, avoid wars" autocomplete="off">
+  <div id="advisor-log"></div>
+  <form id="advisor-form"><input id="advisor-q" placeholder="Ask: what should Rome build?" autocomplete="off"><button>Ask</button></form>
+</div>
+<!-- Debug game stats: the record the game keeps of each turn (src/game/STATS.C). -->
+<div id="stats" hidden>
+  <div class="card">
+    <div class="top"><h1>Game stats</h1>
+      <span><button id="stats-download">Download JSON</button> <button id="stats-close">Close</button></span></div>
+    <div class="tabs" id="stats-tabs"></div>
+    <div id="stats-body"></div>
+  </div>
 </div>
 <!-- While playing, the start page's options move in here and apply at once. -->
 <div id="settings" hidden>
@@ -490,8 +600,10 @@ function renderSaves() {
       }),
       button('Delete', () => {
         if (!confirm(`Delete "${gameName(game)}" and its history?`)) return;
-        for (const n of ls(`${game.dir}/history`)) FS.unlink(`${game.dir}/history/${n}`);
-        try { FS.rmdir(`${game.dir}/history`); } catch {}
+        for (const sub of ['history', 'stats']) {
+          for (const n of ls(`${game.dir}/${sub}`)) FS.unlink(`${game.dir}/${sub}/${n}`);
+          try { FS.rmdir(`${game.dir}/${sub}`); } catch {}
+        }
         for (const n of ls(game.dir)) FS.unlink(`${game.dir}/${n}`);
         FS.rmdir(game.dir);
         persist();
@@ -725,6 +837,12 @@ try { if (localStorage.getItem('civ-better-default') === 'on') $('better-default
 $('better-default').addEventListener('change', () => {
   try { localStorage.setItem('civ-better-default', $('better-default').checked ? 'on' : 'off'); } catch {}
 });
+try { if (localStorage.getItem('civ-debug-stats') === 'on') $('debug-stats').checked = true; } catch {}
+$('debug-stats').addEventListener('change', () => {
+  try { localStorage.setItem('civ-debug-stats', $('debug-stats').checked ? 'on' : 'off'); } catch {}
+  $('stats-open').hidden = !$('debug-stats').checked;
+});
+$('stats-open').hidden = !$('debug-stats').checked;
 try { if (localStorage.getItem('civ-no-barbarians') === 'on') $('no-barbarians').checked = true; } catch {}
 $('no-barbarians').addEventListener('change', () => {
   try { localStorage.setItem('civ-no-barbarians', $('no-barbarians').checked ? 'on' : 'off'); } catch {}
@@ -827,10 +945,12 @@ function start({ game, slot }) {
   if ($('refuse-emissaries').checked) args.push('--refuse-emissaries');
   if ($('better-default').checked) args.push('--better-default-unit');
   if ($('no-barbarians').checked) args.push('--no-barbarians');
+  if ($('debug-stats').checked || $('ai-on').checked) args.push('--debug-stats');
   if (game) args.push('--continue');
   else if (slot !== undefined) args.push('--continue', slot);
   Module.callMain(args);
   zoomTitles();
+  aiFields();
   // SDL sizes the canvas from its default window until the page resizes;
   // tell it about the real size now that the window exists.
   dispatchEvent(new Event('resize'));
@@ -860,12 +980,659 @@ live('city-blink', () => Module._civwasm_set_city_blink($('city-blink').checked 
 live('refuse-emissaries', () => Module._civwasm_set_refuse_emissaries($('refuse-emissaries').checked ? 1 : 0));
 live('better-default', () => Module._civwasm_set_better_default($('better-default').checked ? 1 : 0));
 live('no-barbarians', () => Module._civwasm_set_no_barbarians($('no-barbarians').checked ? 1 : 0));
+live('debug-stats', () => Module._civwasm_set_debug_stats($('debug-stats').checked ? 1 : 0));
+
+// Debug game stats. With the setting on, the game (src/game/STATS.C) hands
+// over a record at the start of each of the player's turns and one for each
+// battle the player fights. They are kept with the game, a file per turn:
+//   /saves/games/<id>/stats/T<turn>.json   [the turn's record, its battles…]
+// A turn played again (a restored turn) replaces that turn and drops the
+// later ones, so the files always tell one story.
+const statsFile = (dir, turn) => `${dir}/T${String(turn).padStart(4, '0')}.json`;
+Module.civwasmStats = json => {
+  if (!activeGame) return;
+  let rec;
+  try { rec = JSON.parse(json); } catch (e) { return console.warn('Debug game stats: bad record', e); }
+  rec.at = Date.now();
+  const dir = `${GAMES}/${activeGame}/stats`;
+  mkdirs(dir);
+  if (rec.kind === 'turn') {
+    for (const n of ls(dir)) if (parseInt(n.slice(1), 10) > rec.turn) FS.unlink(`${dir}/${n}`);
+    // The same turn again (the game resumed mid-turn): keep its battles.
+    const same = readJson(statsFile(dir, rec.turn), []);
+    writeJson(statsFile(dir, rec.turn), [rec, ...same.filter(r => r.kind !== 'turn')]);
+  } else {
+    const file = statsFile(dir, rec.turn);
+    writeJson(file, [...readJson(file, []), rec]);
+  }
+  if (!$('stats').hidden) renderStats();
+  if (rec.kind === 'turn') aiDriving ? planTurn(rec) : advisorTurn(rec);
+};
+
+// The game's record so far: [{turn record, battles: […]}, …], oldest first.
+function statsHistory(game = activeGame) {
+  const dir = `${GAMES}/${game}/stats`;
+  return ls(dir).filter(n => /^T\d+\.json$/.test(n)).sort()
+    .map(n => readJson(`${dir}/${n}`, []))
+    .filter(recs => recs[0]?.kind === 'turn')
+    .map(([turn, ...battles]) => ({ ...turn, battles }));
+}
+window.civStats = statsHistory;
+
+const yearText = y => `${Math.abs(y)} ${y < 0 ? 'BC' : 'AD'}`;
+const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+// What happened between the start of one turn and the start of the next:
+// the player's decisions and their results.
+function turnEvents(prev, next) {
+  const out = [], add = (text, cls = '') => out.push({ text, cls });
+  for (const b of prev.battles) {
+    const ours = b.attacker === prev.civ, won = ours ? b.attacker_won : !b.attacker_won;
+    const where = b.city ? ` at ${b.city}` : ` at (${b.x},${b.y})`;
+    add(ours ? `Our ${b.attacker_unit} attacked ${b.defender} ${b.defender_unit}${where}: ${won ? 'won' : 'lost'}`
+             : `${b.attacker} ${b.attacker_unit} attacked our ${b.defender_unit}${where}: ${won ? 'held' : 'lost'}`, won ? 'good' : 'bad');
+  }
+  if (!next) return out;
+  if (prev.government !== next.government) add(`Government: ${prev.government} → ${next.government}`, 'warn');
+  if (prev.tax_rate !== next.tax_rate || prev.science_rate !== next.science_rate)
+    add(`Rates: tax ${prev.tax_rate}% lux ${prev.luxury_rate}% sci ${prev.science_rate}% → tax ${next.tax_rate}% lux ${next.luxury_rate}% sci ${next.science_rate}%`);
+  for (const a of next.advances) if (!prev.advances.includes(a)) add(`Learned ${a}`, 'good');
+  if (prev.researching !== next.researching && next.researching) add(`Research: now ${next.researching}`);
+  for (const w of next.wonders_elsewhere) if (!prev.wonders_elsewhere.includes(w)) add(`${w} built by another civilization`, 'warn');
+  const before = new Map(prev.cities.map(c => [c.id, c])), after = new Map(next.cities.map(c => [c.id, c]));
+  for (const c of next.cities) {
+    const p = before.get(c.id);
+    if (!p || p.name !== c.name) { add(`${c.name} founded or taken (size ${c.size})`, 'good'); continue; }
+    if (c.size > p.size) add(`${c.name} grew to ${c.size}`, 'good');
+    if (c.size < p.size) add(`${c.name} shrank to ${c.size}`, 'bad');
+    if (c.disorder && !p.disorder) add(`${c.name}: civil disorder`, 'bad');
+    if (!c.disorder && p.disorder) add(`${c.name}: order restored`, 'good');
+    for (const i of [...c.improvements, ...c.wonders]) if (!p.improvements.includes(i) && !p.wonders.includes(i)) add(`${c.name} built ${i}`, 'good');
+    for (const i of p.improvements) if (!c.improvements.includes(i)) add(`${c.name} lost ${i}`, 'bad');
+    if (c.building !== p.building) add(`${c.name}: ${p.building} → ${c.building}`);
+    for (const r of c.trade_routes) if (!p.trade_routes.includes(r)) add(`${c.name}: trade route with ${r}`, 'good');
+  }
+  for (const p of prev.cities) if (!after.has(p.id) || after.get(p.id).name !== p.name) add(`Lost ${p.name}`, 'bad');
+  const rivals = new Map(prev.rivals.map(r => [r.civ, r]));
+  for (const r of next.rivals) {
+    const p = rivals.get(r.civ) || {};
+    if (r.contact && !p.contact) add(`Met the ${r.civ}`);
+    if (r.peace && !p.peace) add(`Peace with the ${r.civ}`, 'good');
+    if (!r.peace && p.peace) add(`Peace with the ${r.civ} ended`, 'bad');
+    if (r.embassy && !p.embassy) add(`Embassy with the ${r.civ}`, 'good');
+  }
+  const units = new Map(prev.units.map(u => [u.id, u])), later = new Map(next.units.map(u => [u.id, u]));
+  for (const u of next.units) {
+    const p = units.get(u.id);
+    if (!p || p.type !== u.type) add(`New ${u.type} at (${u.x},${u.y})${u.home ? ', home ' + u.home : ''}`);
+    else if (p.x !== u.x || p.y !== u.y) add(`${u.type} #${u.id} moved (${p.x},${p.y}) → (${u.x},${u.y})${u.goto ? ` on GoTo to (${u.goto})` : ''}`, 'muted');
+  }
+  for (const p of prev.units) if (!later.has(p.id) || later.get(p.id).type !== p.type) add(`${p.type} #${p.id} gone from (${p.x},${p.y})`, 'muted');
+  return out;
+}
+
+// Turns in a row, up to the latest, that the city kept its size.
+function sameSizeTurns(history, id) {
+  let n = 0;
+  const last = history.at(-1).cities.find(c => c.id === id);
+  for (let i = history.length - 1; i >= 0; i--) {
+    const c = history[i].cities.find(c => c.id === id);
+    if (!c || c.size !== last.size || c.name !== last.name) break;
+    n++;
+  }
+  return n;
+}
+
+// The latest turn's problems, worst first.
+function warnings(history) {
+  const now = history.at(-1), out = [], add = (text, cls) => out.push({ text, cls });
+  for (const c of now.cities) {
+    if (c.disorder) add(`${c.name}: civil disorder (${c.unhappy} unhappy, ${c.happy} happy): nothing is produced`, 'bad');
+    else if (c.unhappy > c.happy) add(`${c.name}: more unhappy (${c.unhappy}) than happy (${c.happy}): disorder next turn`, 'bad');
+    if (c.food_net < 0) add(`${c.name}: starving, ${c.food_net} food a turn (${c.food} in the box)`, 'bad');
+    if (c.change_due) add(`${c.name}: ${c.building} can no longer be built: choose another`, 'warn');
+    if (c.shields_net <= 0 && !c.disorder) add(`${c.name}: no production left after unit support (${c.unit_support})`, 'warn');
+    const same = sameSizeTurns(history, c.id);
+    if (same >= 10 && c.food_net <= 0) add(`${c.name}: size ${c.size} for ${same} turns, no food surplus`, 'warn');
+    else if (c.size >= 10 && !c.improvements.includes('Aqueduct')) add(`${c.name}: size ${c.size} needs an Aqueduct to grow`, 'warn');
+  }
+  if (now.gold < 50 && history.length > 1 && now.gold < history.at(-2).gold) add(`Treasury low and falling: ${now.gold} gold`, 'warn');
+  if (!now.researching) add('Nothing being researched', 'warn');
+  return out.sort((a, b) => (a.cls === 'bad' ? 0 : 1) - (b.cls === 'bad' ? 0 : 1));
+}
+
+let statsTab = 'overview', statsCity = null;
+const STATS_TABS = { overview: 'Overview', empire: 'Empire by turn', cities: 'Cities by turn', log: 'Decisions and events', units: 'Units' };
+function renderStats() {
+  const history = statsHistory();
+  $('stats-tabs').replaceChildren(...Object.entries(STATS_TABS).map(([id, label]) => {
+    const b = button(label, () => { statsTab = id; renderStats(); });
+    b.className = id === statsTab ? 'on' : '';
+    return b;
+  }));
+  const body = $('stats-body');
+  if (!history.length) {
+    body.innerHTML = '<p class="muted">No record yet. With Debug game stats on, the game records the start of each of your turns: end this turn and it appears here.</p>';
+    return;
+  }
+  const now = history.at(-1);
+  const table = (head, rows) => `<table><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr>${rows.join('')}</table>`;
+  const row = cells => `<tr>${cells.map(c => `<td>${c}</td>`).join('')}</tr>`;
+  if (statsTab === 'overview') {
+    const w = warnings(history);
+    body.innerHTML = `<h2>${esc(now.leader)} of the ${esc(now.civ)}, ${yearText(now.year)} (turn ${now.turn})</h2>
+      <p>${esc(now.government)} · ${now.gold} gold · tax ${now.tax_rate}% lux ${now.luxury_rate}% sci ${now.science_rate}% ·
+         ${now.cities.length} cities, ${now.citizens} citizens, ${now.units.length} units · ${now.advances.length} advances ·
+         researching ${esc(now.researching || 'nothing')} (${now.research_progress}/${now.research_cost})</p>
+      <h2>Needs attention</h2>
+      ${w.length ? `<ul>${w.map(x => `<li class="${x.cls}">${esc(x.text)}</li>`).join('')}</ul>` : '<p class="good">Nothing urgent.</p>'}
+      <h2>Cities</h2>
+      ${table(['City', 'Size', 'Food', 'Shields', 'Building', 'Trade', 'Lux/Tax/Sci', 'Happy/Content/Unhappy', 'Improvements'],
+        now.cities.map(c => row([esc(c.name) + (c.disorder ? ' <span class="bad">disorder</span>' : ''), c.size,
+          `<span class="${c.food_net < 0 ? 'bad' : c.food_net === 0 ? 'warn' : ''}">${c.food}/${c.food_box} (${c.food_net >= 0 ? '+' : ''}${c.food_net})</span>`,
+          `${c.shields_net >= 0 ? '+' : ''}${c.shields_net}`,
+          `${esc(c.building)} ${c.shields}/${c.building_cost}${c.turns_left !== undefined && !c.change_due ? `, ${c.turns_left} turns` : ''}`,
+          c.trade + (c.corruption ? ` <span class="muted">(−${c.corruption})</span>` : ''),
+          `${c.luxury}/${c.tax}/${c.science}`, `${c.happy}/${c.content}/${c.unhappy}${c.specialists ? ` +${c.specialists} spec.` : ''}`,
+          `<span class="muted">${esc([...c.improvements, ...c.wonders].join(', '))}</span>`])))}
+      <h2>Other civilizations</h2>
+      ${table(['Civilization', 'Contact', 'Relations', 'Embassy', 'Cities', 'Government', 'Gold', 'Advances'],
+        now.rivals.map(r => row([`${esc(r.civ)} <span class="muted">(${esc(r.leader)})</span>`, r.contact ? 'yes' : 'no',
+          !r.contact ? '' : r.peace ? '<span class="good">peace</span>' : '<span class="bad">war</span>' + (r.they_hold_grudge ? ' (vendetta)' : ''),
+          r.embassy ? 'yes' : 'no', r.cities, esc(r.government ?? '?'), r.gold ?? '?', r.advances ?? '?'])))}`;
+  } else if (statsTab === 'empire') {
+    body.innerHTML = table(['Turn', 'Year', 'Government', 'Gold', 'Tax/Lux/Sci', 'Cities', 'Citizens', 'Units', 'Advances', 'Researching'],
+      [...history].reverse().map((t, i, all) => {
+        const prev = all[i + 1], d = prev ? t.gold - prev.gold : 0;
+        return row([t.turn, yearText(t.year), esc(t.government),
+          `${t.gold} <span class="${d < 0 ? 'bad' : 'muted'}">${prev ? (d >= 0 ? '+' : '') + d : ''}</span>`,
+          `${t.tax_rate}/${t.luxury_rate}/${t.science_rate}`, t.cities.length, t.citizens, t.units.length, t.advances.length,
+          `${esc(t.researching || '—')} ${t.research_progress}/${t.research_cost}`]);
+      }));
+  } else if (statsTab === 'cities') {
+    const names = new Map();
+    for (const t of history) for (const c of t.cities) names.set(c.id + ':' + c.name, c);
+    if (!names.size) { body.innerHTML = '<p class="muted">No cities yet.</p>'; return; }
+    if (!statsCity || !names.has(statsCity)) statsCity = now.cities[0] ? now.cities[0].id + ':' + now.cities[0].name : [...names.keys()][0];
+    const pick = document.createElement('div');
+    pick.className = 'city-pick';
+    for (const [k, c] of names) {
+      const b = button(c.name, () => { statsCity = k; renderStats(); });
+      if (k === statsCity) b.className = 'on';
+      pick.append(b);
+    }
+    const [id, name] = [parseInt(statsCity, 10), statsCity.slice(statsCity.indexOf(':') + 1)];
+    const rows = [];
+    for (const t of [...history].reverse()) {
+      const c = t.cities.find(c => c.id === id && c.name === name);
+      if (!c) continue;
+      const flags = [c.disorder && '<span class="bad">disorder</span>', c.food_net < 0 && '<span class="bad">starving</span>',
+        c.unhappy > c.happy && !c.disorder && '<span class="bad">unrest</span>', c.change_due && '<span class="warn">change build</span>'].filter(Boolean);
+      rows.push(row([t.turn, yearText(t.year), c.size,
+        `<span class="${c.food_net < 0 ? 'bad' : c.food_net === 0 ? 'warn' : ''}">${c.food}/${c.food_box} (${c.food_net >= 0 ? '+' : ''}${c.food_net})</span>`,
+        `${c.shields_made} − ${c.unit_support} = ${c.shields_net}`, `${esc(c.building)} ${c.shields}/${c.building_cost}`,
+        c.trade, `${c.luxury}/${c.tax}/${c.science}`, `${c.happy}/${c.content}/${c.unhappy}`, flags.join(' ')]));
+    }
+    body.replaceChildren(pick);
+    body.insertAdjacentHTML('beforeend', table(['Turn', 'Year', 'Size', 'Food (net)', 'Shields − support', 'Building', 'Trade', 'Lux/Tax/Sci', 'Happy/Content/Unhappy', ''], rows));
+  } else if (statsTab === 'log') {
+    body.innerHTML = [...history].map((t, i) => ({ t, ev: turnEvents(t, history[i + 1]) })).reverse().map(({ t, ev }) =>
+      `<h2>Turn ${t.turn}, ${yearText(t.year)}${t === now ? ' (this turn so far)' : ''}</h2>` +
+      (ev.length ? `<ul>${ev.map(e => `<li class="${e.cls}">${esc(e.text)}</li>`).join('')}</ul>` : '<p class="muted">Nothing changed.</p>')).join('');
+  } else {
+    body.innerHTML = table(['#', 'Unit', 'At', 'Home', 'Orders', 'Veteran'],
+      now.units.map(u => row([u.id, esc(u.type), `(${u.x},${u.y})`, esc(u.home || '—'),
+        [u.fortified && 'fortified', u.sentry && 'sentry', u.goto && `GoTo (${u.goto})`, u.road_to && 'Road To',
+         u.auto_work && `Auto ${u.auto_work === 'i' ? 'Irrigate' : u.auto_work === 'm' ? 'Mine' : u.auto_work}`].filter(Boolean).join(', ') || '—',
+        u.veteran ? 'yes' : ''])));
+  }
+}
+function statsPanel(open) {
+  $('stats').hidden = !open;
+  if (open) renderStats();
+  else $('canvas').focus();
+}
+$('stats-open').addEventListener('click', () => statsPanel(true));
+$('stats-close').addEventListener('click', () => statsPanel(false));
+$('stats').addEventListener('pointerdown', e => { if (e.target === $('stats')) statsPanel(false); });
+for (const t of ['keydown', 'keyup', 'keypress'])
+  $('stats').addEventListener(t, e => { e.stopPropagation(); if (t === 'keydown' && e.key === 'Escape') statsPanel(false); });
+$('stats-download').addEventListener('click', () => {
+  const history = statsHistory(), now = history.at(-1);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(history, null, 1)], { type: 'application/json' }));
+  a.download = now ? `civ-stats-${now.civ}-turn-${now.turn}.json` : 'civ-stats.json';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+});
+
+// AI advisor: a model behind an OpenAI-compatible endpoint (Fireworks by
+// default) reads the Debug game stats record and advises, every few turns
+// or when asked. The page calls the endpoint itself with the player's key,
+// which stays in this browser. Each game keeps its advice:
+//   /saves/games/<id>/advisor.json   [{turn, year, role, text}, …]
+// The rules below are this game's, read from src/game (CITYMGT.C and the
+// tables in GAME.C), so the advice is about Civilization as it plays here.
+const ADVISOR_RULES = `You are an expert adviser for Sid Meier's Civilization (1991, DOS), helping the player win.
+Rules of this game (not Civ II or later):
+- Each citizen eats 2 food; Settlers eat 1 more under Anarchy/Despotism, 2 more under later governments. A city grows when its food box holds (size+1)*10; a Granary keeps half after growth. Food below zero shrinks the city.
+- A city stops growing past size 10 without an Aqueduct.
+- Anarchy and Despotism take 1 off any tile yielding more than 2 food, shields or trade.
+- Citizens are content up to a limit (about 4, lower on harder levels and as the empire gains cities); the rest are unhappy. Civil disorder happens when unhappy > happy: the city produces no shields, taxes or science until fixed.
+- Fixes for unhappiness: luxury (2 luxury = 1 citizen happy), Temple (1 content, 2 with Mysticism), Colosseum (3), Cathedral (4 with Religion; 6 with Michelangelo's), entertainers (specialists), and under Anarchy/Despotism/Monarchy/Communism up to 3 military units in the city (martial law). Under Republic/Democracy each military unit away from home makes citizens unhappy.
+- Unit support: under Despotism a city supports as many units as its size for free, later governments pay 1 shield per unit. Settlers also cost food.
+- Library and University each add 50% science; MarketPlace and Bank add 50% tax and luxury.
+- Governments: Anarchy (after a revolution, no science), Despotism, Monarchy, Communism, Republic (more trade, war weariness), Democracy (most trade, no corruption, units abroad cause unrest, Senate). Republic or Democracy cities with more happy than unhappy citizens and none unhappy grow 1 a turn ("We Love the King Day").
+- Corruption grows with distance from the Palace; a Courthouse halves it.
+- Wonders are built once in the world; one built elsewhere can no longer be built.
+- Coordinates are tiles (x, y) on an 80x50 map; x wraps around.
+How to answer: be concrete and brief. Name cities, units and numbers from the data. Point out problems early (disorder next turn, starvation, wasted production, idle settlers, weak defence near rivals, a better research or build order). No preamble, no restating the data, no generic tips.`;
+
+const ADVISE_SHORT = `Give at most 3 actions, the most urgent first, each one line of under 15 words, as a list starting with "- ". If nothing needs doing, say so in one line.`;
+const ANSWER_SHORT = `Answer the question in 1 to 3 short sentences or bullets.`;
+
+const AI_DEFAULTS = { endpoint: 'https://api.fireworks.ai/inference/v1', model: 'accounts/fireworks/models/deepseek-v4p1-flash' };
+const aiSetting = (id, fallback) => { try { return localStorage.getItem('civ-' + id) ?? fallback; } catch { return fallback; } };
+for (const [id, fallback] of [['ai-endpoint', AI_DEFAULTS.endpoint], ['ai-key', ''], ['ai-model', AI_DEFAULTS.model],
+                              ['ai-every', '5'], ['ai-think', 'off']]) {
+  $(id).value = aiSetting(id, fallback);
+  $(id).addEventListener('change', () => { try { localStorage.setItem('civ-' + id, $(id).value.trim()); } catch {} });
+}
+$('ai-on').checked = aiSetting('ai-on', 'off') === 'on';
+const aiOn = () => $('ai-on').checked && $('ai-key').value.trim();
+function aiFields() {
+  $('ai-fields').hidden = !$('ai-on').checked;
+  $('advisor-open').hidden = $('ai-drive').hidden = !$('ai-on').checked;
+  if (!$('ai-on').checked && aiDriving) aiDrive(false);
+  if (!$('ai-on').checked) { advisorPanel(false); toastHide(); }
+}
+$('ai-on').addEventListener('change', () => {
+  try { localStorage.setItem('civ-ai-on', $('ai-on').checked ? 'on' : 'off'); } catch {}
+  // The advisor reads the stats record.
+  if ($('ai-on').checked && !$('debug-stats').checked) {
+    $('debug-stats').checked = true;
+    $('debug-stats').dispatchEvent(new Event('change'));
+  }
+  aiFields();
+});
+
+// Ask the endpoint which models the key can use, and check the key on the way.
+$('ai-check').addEventListener('click', async () => {
+  $('ai-check-result').textContent = 'Checking…';
+  try {
+    const r = await fetch($('ai-endpoint').value.replace(/\/+$/, '') + '/models', { headers: { Authorization: 'Bearer ' + $('ai-key').value.trim() } });
+    if (!r.ok) throw new Error(`${r.status} ${(await r.text()).slice(0, 200)}`);
+    const ids = ((await r.json()).data || []).map(m => m.id).sort();
+    $('ai-models').replaceChildren(...ids.map(id => Object.assign(document.createElement('option'), { value: id })));
+    $('ai-check-result').textContent = `Key works: ${ids.length} models (pick one in the Model box).`;
+  } catch (e) {
+    $('ai-check-result').textContent = 'Failed: ' + e.message;
+  }
+});
+
+// The advice so far. Each piece of advice starts a thread; questions join
+// the latest thread while it is recent (THREAD_TURNS), and only that thread
+// goes back to the model, so the context never grows past one exchange.
+const THREAD_TURNS = 3;
+const advisorFile = () => `${GAMES}/${activeGame}/advisor.json`;
+const advisorLog = () => activeGame ? readJson(advisorFile(), []) : [];
+function advisorSay(entry) {
+  const log = [...advisorLog(), { ...entry, at: Date.now() }];
+  writeJson(advisorFile(), log.slice(-200));
+  renderAdvisor();
+}
+function currentThread(turn) {
+  const log = advisorLog(), last = log.at(-1);
+  if (!last || last.thread === undefined || turn - last.turn >= THREAD_TURNS) return [];
+  return log.filter(e => e.thread === last.thread);
+}
+
+// The model's reply as HTML: escaped, with lists and **bold**.
+function adviceHtml(text) {
+  const lines = esc(text).split('\n').map(l => l.trimEnd()).filter((l, i, a) => l || (a[i - 1] && a[i + 1]));
+  let html = '', list = false;
+  for (const l of lines) {
+    const item = /^\s*(?:[-*•]|\d+[.)])\s+(.*)$/.exec(l);
+    if (item && !list) { html += '<ul>'; list = true; }
+    if (!item && list) { html += '</ul>'; list = false; }
+    html += item ? `<li>${item[1]}</li>` : l ? `<p>${l}</p>` : '';
+  }
+  if (list) html += '</ul>';
+  return html.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+}
+const entryHtml = e => e.role === 'user'
+  ? `<div class="q"><span class="muted">you:</span> ${esc(e.text)}</div>`
+  : e.role === 'note' ? `<div class="note"><span class="muted">T${e.turn}</span> ${esc(e.text)}</div>`
+  : `<div class="${e.role === 'error' ? 'a err' : 'a'}"><div class="muted">${e.role === 'error' ? 'Error' : 'Advisor'}, turn ${e.turn} (${yearText(e.year)})</div>${e.role === 'error' ? esc(e.text) : adviceHtml(e.text)}</div>`;
+
+// The chat panel shows the latest thread.
+function renderAdvisor() {
+  const log = advisorLog(), last = log.at(-1), body = $('advisor-log');
+  const thread = last ? log.filter(e => e.thread === last.thread || (last.thread === undefined && e === last)) : [];
+  body.innerHTML = thread.map(entryHtml).join('')
+    || '<p class="muted">Advice pops up at the start of a turn (Settings sets how often). Press Advise now, or ask a question below.</p>';
+  body.scrollTop = body.scrollHeight;
+}
+function advisorPanel(open) {
+  $('advisor').hidden = !open;
+  if (open) $('advisor-direction').value = direction();
+  if (open) { toastHide(); renderAdvisor(); $('advisor-q').focus(); }
+  else $('canvas').focus();
+}
+
+// The pop-up: the latest advice, faded in over the map's corner and gone
+// after a few seconds (longer for longer advice; held while the pointer is
+// on it). A click opens the chat.
+let toastTimer;
+function toastShow(entry) {
+  if (!$('advisor').hidden) return;
+  $('advisor-toast-body').innerHTML = entryHtml(entry);
+  $('advisor-toast').classList.add('shown');
+  toastArm();
+}
+// While the advice is on its way: the pop-up says so, until the answer replaces it.
+function toastWait() {
+  if (!$('advisor').hidden) return;
+  clearTimeout(toastTimer);
+  $('advisor-toast-body').innerHTML = '<div class="muted">Advisor is thinking…</div>';
+  $('advisor-toast').classList.add('shown');
+}
+function toastArm() {
+  clearTimeout(toastTimer);
+  const words = $('advisor-toast-body').innerText.split(/\s+/).length;
+  toastTimer = setTimeout(toastHide, Math.min(12000, 3000 + words * 150));
+}
+function toastHide() {
+  clearTimeout(toastTimer);
+  $('advisor-toast').classList.remove('shown');
+}
+$('advisor-toast').addEventListener('pointerenter', () => clearTimeout(toastTimer));
+$('advisor-toast').addEventListener('pointerleave', toastArm);
+$('advisor-toast').addEventListener('click', e => { if (e.target !== $('advisor-toast-close')) advisorPanel(true); });
+$('advisor-toast-close').addEventListener('click', toastHide);
+
+// The game as the model sees it: the latest record, a digest of the last
+// turns, and the warnings the stats report shows.
+function advisorContext(history) {
+  const now = history.at(-1), recent = history.slice(-11);
+  const digest = recent.slice(0, -1).map((t, i) => {
+    const ev = turnEvents(t, recent[i + 1]).filter(e => e.cls !== 'muted').map(e => e.text);
+    return `Turn ${t.turn} (${yearText(t.year)}): gold ${t.gold}, ${t.cities.length} cities, ${t.citizens} citizens, tax/lux/sci ${t.tax_rate}/${t.luxury_rate}/${t.science_rate}` +
+      (ev.length ? '\n  ' + ev.join('\n  ') : '');
+  }).join('\n');
+  const stuck = now.cities.map(c => [c.name, sameSizeTurns(history, c.id)]).filter(([, n]) => n >= 8).map(([n, k]) => `${n} (${k} turns)`);
+  const { at, battles, kind, ...state } = now;
+  return `Current state at the start of turn ${now.turn} (${yearText(now.year)}), JSON:\n${JSON.stringify(state)}\n\n` +
+    `Battles so far this turn: ${JSON.stringify(battles)}\n\n` +
+    `What happened over the last turns:\n${digest || '(no earlier turns recorded)'}\n\n` +
+    (stuck.length ? `Cities that have not grown: ${stuck.join(', ')}\n\n` : '') +
+    `Warnings the game computed: ${warnings(history).map(w => w.text).join('; ') || 'none'}`;
+}
+
+// One request, given up after `wait` ms. Thinking off asks reasoning models
+// to answer at once (reasoning_effort "none"); an endpoint that rejects the
+// field gets the request again without it.
+async function complete(messages, think, json) {
+  const url = $('ai-endpoint').value.replace(/\/+$/, '') + '/chat/completions';
+  const body = { model: $('ai-model').value.trim() || AI_DEFAULTS.model, messages, temperature: 0.4, max_tokens: think ? 6000 : json ? 3000 : 500 };
+  if (!think) body.reasoning_effort = 'none';
+  if (json) body.response_format = { type: 'json_object' };
+  for (let attempt = 0; ; attempt++) {
+    const stop = new AbortController(), timer = setTimeout(() => stop.abort(), think ? 150000 : 45000);
+    try {
+      const r = await fetch(url, { method: 'POST', signal: stop.signal, body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + $('ai-key').value.trim() } });
+      if (r.status === 400 && (body.reasoning_effort || body.response_format)) {
+        const t = await r.text();
+        if (/reasoning/i.test(t)) { delete body.reasoning_effort; continue; }
+        if (/response_format/i.test(t) && body.response_format) { delete body.response_format; continue; }
+        throw new Error(`400: ${t.slice(0, 300)}`);
+      }
+      if (r.status >= 500 && attempt < 1) continue;
+      if (!r.ok) throw new Error(`${r.status}: ${(await r.text()).slice(0, 300)}`);
+      const data = await r.json();
+      const text = (data.choices?.[0]?.message?.content || '').replace(/<think>[\s\S]*?(<\/think>|$)/g, '').trim();
+      if (!text) throw new Error('The model sent no answer' + (data.choices?.[0]?.finish_reason === 'length' ? ' (it ran out of room while thinking).' : '.'));
+      return { text, model: data.model, tokens: data.usage?.total_tokens };
+    } catch (e) {
+      if (e.name === 'AbortError') {
+        if (attempt < 1) continue;
+        throw new Error(`No answer in ${think ? 150 : 45} seconds (tried twice).`);
+      }
+      if (e instanceof TypeError && attempt < 1) continue;       // network
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+}
+
+let advisorBusy = false;
+async function advise(question) {
+  const history = statsHistory(), now = history.at(-1);
+  const fail = text => { const e = { role: 'error', turn: now?.turn ?? 0, year: now?.year ?? 0, text }; advisorSay(e); toastShow(e); };
+  if (!now) return fail('No game record yet: end a turn first (Debug game stats records the start of each turn).');
+  if (!$('ai-key').value.trim()) return fail('No API key: add one under Settings, AI advisor.');
+  if (advisorBusy) return;
+  advisorBusy = true;
+  $('advisor-status').textContent = 'thinking…';
+  if (!question) toastWait();
+  // Advice starts a new thread; a question carries on the recent one.
+  const before = question ? currentThread(now.turn).filter(e => e.role !== 'error') : [];
+  const thread = before.length ? before[0].thread : Date.now();
+  if (question) advisorSay({ role: 'user', turn: now.turn, year: now.year, text: question, thread });
+  const messages = [
+    { role: 'system', content: ADVISOR_RULES + '\n' + (question ? ANSWER_SHORT : ADVISE_SHORT) },
+    { role: 'user', content: advisorContext(history) },
+    ...before.slice(-8).map(e => ({ role: e.role === 'user' ? 'user' : 'assistant', content: e.text })),
+    { role: 'user', content: question || `It is the start of turn ${now.turn}. What should I do now?` },
+  ];
+  try {
+    const answer = await complete(messages, $('ai-think').value === 'on');
+    const entry = { role: 'assistant', turn: now.turn, year: now.year, thread, question: !!question, ...answer };
+    advisorSay(entry);
+    if (!question) toastShow(entry);
+  } catch (e) {
+    fail(e.message);
+  } finally {
+    advisorBusy = false;
+    $('advisor-status').textContent = '';
+  }
+}
+
+// At the start of a turn: advise every N turns (0: only when asked), once a turn.
+function advisorTurn(rec) {
+  const every = parseInt($('ai-every').value, 10);
+  if (!aiOn() || !every) return;
+  const last = advisorLog().filter(e => e.role === 'assistant' && !e.question).at(-1);
+  if (last && last.turn >= rec.turn) return;
+  if (last && rec.turn - last.turn < every) return;
+  advise();
+}
+
+$('advisor-now').addEventListener('click', () => advise());
+$('advisor-open').addEventListener('click', () => advisorPanel($('advisor').hidden));
+$('advisor-close').addEventListener('click', () => advisorPanel(false));
+$('advisor-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const q = $('advisor-q').value.trim();
+  if (!q) return;
+  $('advisor-q').value = '';
+  advise(q);
+});
+// Keys typed in the panel are the page's, not the game's.
+for (const t of ['keydown', 'keyup', 'keypress'])
+  $('advisor').addEventListener(t, e => { e.stopPropagation(); if (t === 'keydown' && e.key === 'Escape') advisorPanel(false); });
+aiFields();
+
+// The game's tables by number (src/game/GAME.C), to turn the plan's names into orders.
+const GAME_UNITS = ["Settlers", "Militia", "Phalanx", "Legion", "Musketeers", "Riflemen", "Cavalry", "Knights", "Catapult", "Cannon", "Chariot", "Armor", "Mech. Inf.", "Artillery", "Fighter", "Bomber", "Trireme", "Sail", "Frigate", "Ironclad", "Cruiser", "Battleship", "Submarine", "Carrier", "Transport", "Nuclear", "Diplomat", "Caravan"];
+const GAME_IMPROVEMENTS = ["NONE", "Palace", "Barracks", "Granary", "Temple", "MarketPlace", "Library", "Courthouse", "City Walls", "Aqueduct", "Bank", "Cathedral", "University", "Mass Transit", "Colosseum", "Factory", "Mfg. Plant", "SDI Defense", "Recycling Cntr.", "Power Plant", "Hydro Plant", "Nuclear Plant", "SS Structural", "SS Component", "SS Module", "Pyramids", "Hanging Gardens", "Colossus", "Lighthouse", "Great Library", "Oracle", "Great Wall", "Magellan's Expedition", "Michelangelo's Chapel", "Copernicus' Observatory", "Shakespeare's Theatre", "Isaac Newton's College", "J.S.Bach's Cathedral", "Darwin's Voyage", "Hoover Dam", "Women's Suffrage", "Manhattan Project", "United Nations", "Apollo Program", "SETI Program", "Cure for Cancer"];
+const GAME_ADVANCES = ["Alphabet", "Code of Laws", "Currency", "Atomic Theory", "Democracy", "Monarchy", "Astronomy", "MapMaking", "Navigation", "Mathematics", "Medicine", "Physics", "Engineering", "University", "Magnetism", "Electronics", "Masonry", "Bronze Working", "Iron Working", "Bridge Building", "Invention", "Computers", "Writing", "Steam Engine", "Trade", "Ceremonial Burial", "Mysticism", "Nuclear Fission", "Philosophy", "Religion", "Literacy", "Horseback Riding", "Feudalism", "The Wheel", "Gunpowder", "Industrialization", "Chemistry", "Combustion", "Flight", "Advanced Flight", "Space Flight", "Mass Production", "Pottery", "Communism", "The Republic", "Construction", "Rocketry", "The Corporation", "Metallurgy", "RailRoad", "Nuclear Power", "Theory of Gravity", "Steel", "Banking", "Electricity", "Refining", "Explosives", "SuperConductor", "Automobile", "Genetic Engineering", "Plastics", "Recycling", "Chivalry", "Robotics", "Conscription", "Labor Union", "Fusion Power", "1", "2", "3", "4", "Future Tech."];
+
+// AI plays: the model plays the player's civilization. At the start of each
+// turn it gets the game (as the advisor does) and answers with one plan:
+// research, rates, what cities build, and an order for every unit waiting
+// for one. The page applies it (src/game/STATS.C civwasm_ai_*), and the game
+// carries the orders out as the player's own: GoTo walks on by itself, and
+// units the plan leaves alone get the game's computer-player orders. The
+// game answers its dialogs by asking the page (Module.civwasmAiDialog) and
+// waits at the start of the turn until the plan is in. Switching it off
+// hands the turn back at once; standing orders stay.
+const PLAN_RULES = `You are now playing this civilization yourself. Reply with one JSON object and nothing else:
+{"notes": [], "research": "", "rates": {"tax": 50, "science": 50}, "cities": [{"name": "", "build": ""}], "units": [{"id": 0, "order": "", "x": 0, "y": 0, "dir": ""}]}
+- units: an order for every unit listed as awaiting orders (others keep their standing orders unless you replace them). Orders: "goto" with x and y; "move" with dir N, NE, E, SE, S, SW, W or NW (one step; onto an enemy it attacks); "fortify"; "sentry"; "found_city" (Settlers: found a city on their tile, or join the city they stand in); "road", "irrigate", "mine" (Settlers, their tile); "auto_irrigate", "auto_mine", "auto_road" (Settlers improve the land for the cities); "explore"; "ai" (the game's own computer player moves the unit every turn: fine for routine units); "wait"; "skip"; "disband".
+- Settlers show "around": the 8 tiles next to them, north first, clockwise. Found cities on Grassland, Plains or River with good land around, 3 to 5 tiles from other cities.
+- cities: a city keeps its build until it is finished. List a city only when its build can no longer be finished (change_due), it is in disorder or starving, enemies are near, or the player's direction calls for it; "build" must be in that city's can_build.
+- research: only when it should change, from can_research. rates: only when they should change; tax and science in tens, adding up to at most 100, the rest is luxury.
+- Government changes (revolution) are not available to you yet: leave the government alone.
+- notes: usually empty. At most 1 short phrase, under 12 words each, only for a new decision worth telling the player: a build changed and why, unrest, a war, a new city, research or rates changed. Never repeat one of your recent notes.
+- Follow the player's direction.`;
+const ORDER_KEYS = { fortify: 'f', sentry: 's', found_city: 'b', road: 'r', irrigate: 'i', mine: 'm', auto_irrigate: 'I',
+  auto_mine: 'M', auto_road: 'A', explore: 'E', ai: 'Z', wait: 'w', skip: ' ', disband: 'D', home: 'h' };
+const DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+
+var aiDriving = false;           // var: Settings may ask before this runs
+let plannedTurn = -1, planning = false, aiMessages = [], buildChanged = {}, lastMissed = [];
+const directionFile = () => `${GAMES}/${activeGame}/direction.txt`;
+const direction = () => { try { return new TextDecoder().decode(FS.readFile(directionFile())).trim(); } catch { return ''; } };
+$('advisor-direction').addEventListener('change', () => {
+  if (!activeGame) return;
+  FS.writeFile(directionFile(), $('advisor-direction').value.trim());
+  const d = $('advisor-direction').value.trim(), now = statsHistory().at(-1);
+  advisorSay({ role: 'note', turn: now?.turn ?? 0, year: now?.year ?? 0, text: d ? `Direction: ${d}` : 'Direction cleared', thread: currentThread(now?.turn ?? 0)[0]?.thread ?? Date.now() });
+});
+
+// Units with nothing to do: no GoTo, Auto order or work under way, not fortified or asleep.
+const awaiting = rec => rec.units.filter(u => !u.goto && !u.fortified && !u.sentry && !u.auto_work && !u.road_to && !u.ai_auto && !(u.status & 0xc2));
+
+function applyPlan(plan, rec) {
+  const missed = [];
+  const name = n => String(n || '').trim().toLowerCase();
+  if (plan.research) {
+    const id = GAME_ADVANCES.findIndex(a => name(a) === name(plan.research));
+    if (!(id >= 0 && Module._civwasm_order_research(id))) missed.push(`research ${plan.research}`);
+  }
+  if (plan.rates && Number.isFinite(+plan.rates.tax) && Number.isFinite(+plan.rates.science))
+    if (!Module._civwasm_order_rates(Math.round(plan.rates.tax / 10), Math.round(plan.rates.science / 10))) missed.push('rates');
+  for (const c of plan.cities || []) {
+    const city = rec.cities.find(x => name(x.name) === name(c.name) || x.id === c.id);
+    // A build stays at least 8 turns unless the city needs a new one now.
+    const urgent = city && (city.change_due || city.disorder || city.food_net < 0 || city.unhappy > city.happy);
+    if (city && !urgent && rec.turn - (buildChanged[city.id] ?? -99) < 8 && name(city.building) !== name(c.build)) { missed.push(`${c.name}: ${c.build} (kept ${city.building})`); continue; }
+    let what = GAME_UNITS.findIndex(u => name(u) === name(c.build));
+    if (what < 0) {
+      const i = GAME_IMPROVEMENTS.findIndex(i => name(i) === name(c.build));
+      what = i > 0 ? -i : null;
+    }
+    if (!city || what === null || !Module._civwasm_order_build(city.id, what)) missed.push(`${c.name}: ${c.build}`);
+    else buildChanged[city.id] = rec.turn;
+  }
+  const ordered = new Set();
+  for (const u of plan.units || []) {
+    let ok = false;
+    if (u.order === 'goto') ok = Module._civwasm_order_unit(u.id, 'g'.charCodeAt(0), u.x, u.y);
+    else if (u.order === 'move') ok = DIRS.includes(u.dir) && Module._civwasm_order_unit(u.id, DIRS.indexOf(u.dir) + 1, 0, 0);
+    else if (ORDER_KEYS[u.order]) ok = Module._civwasm_order_unit(u.id, ORDER_KEYS[u.order].charCodeAt(0), 0, 0);
+    if (ok) ordered.add(u.id); else missed.push(`unit ${u.id}: ${u.order}`);
+  }
+  // Left without an order: the game's own computer-player moves.
+  for (const u of awaiting(rec)) if (!ordered.has(u.id)) Module._civwasm_order_unit(u.id, 'Z'.charCodeAt(0), 0, 0);
+  return missed;
+}
+
+async function planTurn(rec) {
+  if (!aiDriving || planning || !rec || plannedTurn === rec.turn) return;
+  planning = true;
+  plannedTurn = rec.turn;
+  driveStatus(`planning turn ${rec.turn}…`);
+  const history = statsHistory(), notes = advisorLog().filter(e => e.role === 'note').slice(-5);
+  const idle = awaiting(rec);
+  const messages = [
+    { role: 'system', content: ADVISOR_RULES + '\n' + PLAN_RULES },
+    { role: 'user', content: advisorContext(history) +
+      `\n\nUnits awaiting orders: ${idle.map(u => `${u.id} ${u.type} at (${u.x},${u.y})`).join('; ') || 'none'}` +
+      `\n\nGame messages since your last plan: ${aiMessages.join(' | ') || 'none'}` +
+      `\n\nYour orders the game refused last turn (a build is kept 8 turns unless urgent; builds must be in can_build): ${lastMissed.join('; ') || 'none'}` +
+      `\n\nYour recent notes: ${notes.map(n => `turn ${n.turn}: ${n.text}`).join(' | ') || 'none'}` +
+      `\n\nThe player's direction: ${direction() || 'none given: play to win'}` },
+  ];
+  aiMessages = [];
+  try {
+    const answer = await complete(messages, $('ai-think').value === 'on', true);
+    let plan;
+    try { plan = JSON.parse(answer.text.replace(/^```(json)?|```$/g, '').trim()); }
+    catch { throw new Error('The plan was not valid JSON.'); }
+    const missed = applyPlan(plan, rec);
+    if (missed.length) console.warn('AI plays: orders not taken: ' + JSON.stringify(missed));
+    lastMissed = missed;
+    const thread = currentThread(rec.turn)[0]?.thread ?? Date.now();
+    // Notes that say what a recent one said are dropped.
+    const words = t => new Set(String(t).toLowerCase().match(/[a-z]{3,}/g) || []);
+    const recent = advisorLog().filter(e => e.role === 'note').slice(-8).map(e => words(e.text));
+    for (const n of (plan.notes || []).slice(0, 1)) {
+      const w = words(n);
+      if (!w.size || recent.some(r => [...w].filter(x => r.has(x)).length >= 0.6 * w.size)) continue;
+      recent.push(w);
+      advisorSay({ role: 'note', turn: rec.turn, year: rec.year, text: String(n), thread });
+    }
+  } catch (e) {
+    advisorSay({ role: 'error', turn: rec.turn, year: rec.year, text: 'AI plays: ' + e.message + ' Its units get the game\'s own orders this turn.' });
+    for (const u of idle) Module._civwasm_order_unit(u.id, 'Z'.charCodeAt(0), 0, 0);
+  } finally {
+    planning = false;
+    driveStatus('');
+    Module._civwasm_ai_plan_ready();
+  }
+}
+
+// The game's dialogs while the AI plays: their text goes to the next plan;
+// the answer is the game's own preselected choice.
+Module.civwasmAiDialog = (text, preset, count) => {
+  const t = text.replace(/\s+/g, ' ').trim();
+  if (t) aiMessages.push(t.slice(0, 160));
+  if (aiMessages.length > 12) aiMessages.shift();
+  return preset >= 0 ? preset : count > 0 ? 0 : -1;
+};
+
+function driveStatus(text) {
+  for (const b of [$('ai-drive'), $('advisor-drive')]) {
+    b.classList.toggle('on', aiDriving);
+    b.textContent = aiDriving ? (text ? 'AI: ' + text.replace(/ turn \d+/, '') : 'AI playing') : 'AI plays';
+  }
+}
+function aiDrive(on) {
+  if (on && !aiOn()) {
+    const e = { role: 'error', turn: 0, year: 0, text: 'AI plays needs the AI advisor on, with an API key (Settings).' };
+    toastShow(e);
+    return;
+  }
+  aiDriving = on;
+  Module._civwasm_set_ai_drive(on ? 1 : 0);
+  driveStatus('');
+  const now = statsHistory().at(-1);
+  advisorSay({ role: 'note', turn: now?.turn ?? 0, year: now?.year ?? 0, text: on ? 'AI is playing.' : 'You have control.', thread: Date.now() });
+  toastShow({ role: 'note', turn: now?.turn ?? 0, year: now?.year ?? 0, text: on ? 'AI is playing (Alt+P to take back control).' : 'You have control.' });
+  if (on) {
+    if (!$('debug-stats').checked) { $('debug-stats').checked = true; $('debug-stats').dispatchEvent(new Event('change')); }
+    Module._civwasm_set_debug_stats(1);
+    plannedTurn = -1;
+    Module._civwasm_record_now();          // a record of this turn, and so its plan
+    Module._civwasm_ai_wake();
+  }
+}
+$('ai-drive').addEventListener('click', () => aiDrive(!aiDriving));
+$('advisor-drive').addEventListener('click', () => aiDrive(!aiDriving));
 
 // Shortcuts while playing, taken before the game sees them: Alt with - or _
 // zooms out, with = or + zooms in, and with ` ~ or * switches the map art.
 // By key position, so Shift and keyboard layouts don't matter.
 const SHORTCUTS = { Minus: () => zoom(-1), NumpadSubtract: () => zoom(-1), Equal: () => zoom(1), NumpadAdd: () => zoom(1),
   Backquote: switchArt, NumpadMultiply: switchArt, Digit8: switchArt, Backspace: switchArt };
+// The AI advisor: Alt+. pops up advice for this turn, Alt+/ opens the chat.
+SHORTCUTS.Period = () => { if ($('ai-on').checked) advise(); };
+SHORTCUTS.Slash = () => { if ($('ai-on').checked) advisorPanel($('advisor').hidden); };
+SHORTCUTS.KeyP = () => { if ($('ai-on').checked) aiDrive(!aiDriving); };
 function switchArt() {
   if (!haveSkin()) return;
   $('skin').value = $('skin').value === 'winciv' ? 'dos' : 'winciv';

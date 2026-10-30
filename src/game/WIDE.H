@@ -32,6 +32,14 @@ extern int civwasm_own_moves;           /* --own-moves: the player's automatic m
 extern int civwasm_auto_step;           /* the move under way is automatic (CONTROL.C uc:) */
 extern int civwasm_better_default;      /* new cities build the best defender (CITY.C; set while playing too) */
 extern int civwasm_no_barbarians;       /* no raids, uprisings or huts' hordes (TURN.C, UNITS.C; set while playing too) */
+extern int civwasm_debug_stats;         /* --debug-stats: a record of each turn and battle for the page (STATS.C; set while playing too) */
+extern void civwasm_stats_send(char *);  /* civwasm.c: hand a record to the page */
+extern void civwasm_stats_turn(void);
+extern void civwasm_stats_battle(int, int, int, int, int, int, int);
+extern int civwasm_ai_drive;            /* AI plays (STATS.C; set while playing) */
+extern int civwasm_ai_key(int, int);    /* STATS.C: the plan's key for a unit waiting for orders */
+extern void civwasm_ai_wait_plan(void); /* civwasm.c: wait for the page's plan for this turn */
+extern int civwasm_ai_dialog(char *, int, int);  /* civwasm.c: the page's answer to a dialog */
 extern int civwasm_browser_saves;       /* --browser-saves: the page keeps the saves; no AutoSave */
 /* How much further a centred view's corner sits from its centre than in
  * the original 15 x 12 view: reveal(civ, x - 7 - WIDE_DX, y - 6 - WIDE_DY). */

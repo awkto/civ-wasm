@@ -151,6 +151,12 @@ CIVWASM_EXPORT void civwasm_set_no_barbarians(int on)
     civwasm_no_barbarians = (int16_t) !!on;
 }
 
+CIVWASM_EXPORT void civwasm_set_debug_stats(int on)
+{
+    extern int16_t civwasm_debug_stats;
+    civwasm_debug_stats = (int16_t) !!on;
+}
+
 CIVWASM_EXPORT void civwasm_set_better_default(int on)
 {
     extern int16_t civwasm_better_default;
@@ -224,6 +230,85 @@ void civwasm_step_shown(void)
     uint64_t until = reciv_clock_ns() + 50000000ull;
     while (civwasm_frames_shown() == frame_mark && reciv_clock_ns() < until)
         emscripten_sleep(1);
+#endif
+}
+
+/* Debug game stats (STATS.C): each record goes to the page's
+ * Module.civwasmStats, as JSON text. */
+#ifdef __EMSCRIPTEN__
+EM_JS(void, civwasm_stats_send, (const char *json), {
+    if (Module.civwasmStats) Module.civwasmStats(UTF8ToString(json));
+});
+#else
+void civwasm_stats_send(const char *json)
+{
+    (void) json;
+}
+#endif
+
+/* AI plays (STATS.C): the page sends its plan for the turn through these,
+ * and the game waits for it at the start of the turn and answers dialogs
+ * by asking the page. */
+extern int16_t civwasm_ai_drive;
+extern int16_t civwasm_ai_build(int16_t, int16_t), civwasm_ai_rates(int16_t, int16_t);
+extern int16_t civwasm_ai_research(int16_t), civwasm_ai_unit(int16_t, int16_t, int16_t, int16_t);
+extern void civwasm_ai_planned(void);
+
+CIVWASM_EXPORT void civwasm_set_ai_drive(int on)
+{
+    civwasm_ai_drive = (int16_t) !!on;
+}
+CIVWASM_EXPORT int civwasm_order_build(int city, int what) { return civwasm_ai_build((int16_t) city, (int16_t) what); }
+CIVWASM_EXPORT int civwasm_order_rates(int tax, int science) { return civwasm_ai_rates((int16_t) tax, (int16_t) science); }
+CIVWASM_EXPORT int civwasm_order_research(int adv) { return civwasm_ai_research((int16_t) adv); }
+CIVWASM_EXPORT int civwasm_order_unit(int unit, int order, int x, int y)
+{
+    return civwasm_ai_unit((int16_t) unit, (int16_t) order, (int16_t) x, (int16_t) y);
+}
+
+/* Switched on while the game waits for a key: a harmless one ('c',
+ * centre the view) lets it reach AI plays' own turn. */
+CIVWASM_EXPORT void civwasm_ai_wake(void)
+{
+    reciv_key_event(0x2E63);
+}
+
+extern void civwasm_stats_now(void);
+CIVWASM_EXPORT void civwasm_record_now(void)
+{
+    civwasm_stats_now();
+}
+
+static int plan_ready;
+CIVWASM_EXPORT void civwasm_ai_plan_ready(void)
+{
+    civwasm_ai_planned();
+    plan_ready = 1;
+}
+
+/* Up to two minutes, or until AI plays is switched off. */
+void civwasm_ai_wait_plan(void)
+{
+#ifdef __EMSCRIPTEN__
+    uint64_t until = reciv_clock_ns() + 120000000000ull;
+    plan_ready = 0;
+    while (!plan_ready && civwasm_ai_drive && reciv_clock_ns() < until)
+        emscripten_sleep(50);
+#endif
+}
+
+#ifdef __EMSCRIPTEN__
+EM_JS(int, civwasm_ai_dialog_js, (const char *text, int preset, int count), {
+    return Module.civwasmAiDialog ? Module.civwasmAiDialog(UTF8ToString(text), preset, count) : preset;
+});
+#endif
+int16_t civwasm_ai_dialog(const char *text, int16_t preset, int16_t count)
+{
+#ifdef __EMSCRIPTEN__
+    return (int16_t) civwasm_ai_dialog_js(text, preset, count);
+#else
+    (void) text; (void) count;
+    return preset;
 #endif
 }
 

@@ -147,6 +147,8 @@ int edit_line(int x, int y, int n)
     int edit;
     char input[64];
 
+    if (civwasm_ai_drive)
+        return 1;               /* civ-wasm: AI plays: the name offered */
     rect_fill(scrbuf, x, y, 7 * n, 11, 15);
     draw_box(x, y - 1, (n << 3) + 8, 13, 0);
     scrbuf->text_colour = 15;

@@ -91,7 +91,14 @@ int menu_core(char *text, int x, int y, int mode)
         abort_flag = 0;
         return -1;
     }
-    do {
+    if (civwasm_ai_drive) {
+        /* civ-wasm: AI plays: the page answers at once */
+        selected_e = civwasm_ai_dialog(text, need_ok_key || box_info_flags ? -1 : selected_e, menu_item_count);
+        if (selected_e >= menu_item_count || (selected_e >= 0 && (dialog_dim & (1 << selected_e))))
+            selected_e = -1;
+        accepted_e = 1;
+    }
+    while (!accepted_e) {
         if (style != -1)
             leader_animate();
         refresh_pending = 0;
@@ -167,7 +174,7 @@ int menu_core(char *text, int x, int y, int mode)
             prev = selected_e;
             mouse_on();
         }
-    } while (!accepted_e);
+    }
     if (selected_e != -1) {
         mouse_off();
         if (!vga_modes)

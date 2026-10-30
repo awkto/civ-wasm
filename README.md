@@ -94,6 +94,32 @@ The server holding the zip must allow cross-origin requests.
   cities, and huts give mercenaries instead of a horde. The game rolls for
   barbarians each turn, so it can be switched at any time; barbarians
   already on the map stay.
+- **Debug game stats.** A setting, off by default: at the start of each of
+  your turns the game records your civilization (government, gold, rates,
+  research, every city's size, food, shields, trade, happiness, production,
+  improvements and trade routes, your units and their orders, and your
+  relations with the others), plus every battle you fight. The Stats button
+  shows it: what needs attention now, the empire and each city turn by
+  turn, and a log of your decisions and what came of them. The record is
+  kept with the game and can be downloaded as JSON.
+- **AI advisor.** A setting, off by default: a language model reads the
+  game stats and advises at the start of every turn or every few turns: a
+  few short lines that pop up in the corner and fade. The Advisor button
+  opens the chat, for Advise now and questions (Alt+. pops up advice at
+  once, Alt+/ opens the chat); each piece of advice starts
+  a fresh thread, so the model only sees the game and that exchange. It uses any OpenAI-compatible endpoint (Fireworks by
+  default) with your own API key, which stays in your browser; the page
+  calls the endpoint directly. Its instructions carry this game's rules
+  (growth, disorder, governments, buildings), read from the source.
+- **AI plays (Alt+P).** Hands your civilization to the model and back at
+  any time. Each turn it sends one plan (research, rates, what cities
+  build, an order for every idle unit), which the game carries out as your
+  own orders without opening any screen; units it leaves alone get the
+  game's computer-player moves, and the game's questions are answered for
+  it. A city's build stays at least 8 turns unless the city needs a new
+  one. A direction line in the chat ("grow fast", "science first") is kept
+  with the game and sent with every plan, and the chat shows its occasional
+  notes. It cannot change government yet.
 - **Display filters.** Crisp pixels, raw pixels, hq4x smoothing or bilinear, always
   at the original 4:3 shape. Fullscreen is in the toolbar (or F11).
 
