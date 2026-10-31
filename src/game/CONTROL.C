@@ -421,6 +421,25 @@ uc:                            /* unit command */
                         ek = civwasm_road_to[civ][jf] ? road_to_goal(civ, jf) : unit_goal(civ, jf);     /* civ-wasm: Road To */
                     else
                         U.f8 = -1;
+                    /* civ-wasm: an automatic step never attacks. One onto another
+                     * civilization's unit or city waits for the next turn (Auto
+                     * Irrigate, Mine, Road), or ends the order (Auto Explore, Road
+                     * To, Auto Trade); a caravan on Auto Trade still enters a city, to trade. */
+                    if (ek >= 1 && ek <= 8 && (civwasm_auto_work[civ][jf] || civwasm_road_to[civ][jf])) {
+                        oq = wrap_x(spiral_x[ek] + U.x);
+                        mc = clamp(spiral_y[ek] + U.y, 0, 49);
+                        gy = (map_flags(oq, mc) & 1) ? city_at(oq, mc) : -1;
+                        if (((map_stack(oq, mc) != -1 && stk_plr != civ) || (gy != -1 && townbuf[gy].owner != civ)) &&
+                            !(civwasm_auto_work[civ][jf] == 't' && gy != -1)) {
+                            if (civwasm_road_to[civ][jf] || civwasm_auto_work[civ][jf] == 'e' || civwasm_auto_work[civ][jf] == 't') {
+                                civwasm_auto_work[civ][jf] = civwasm_road_to[civ][jf] = 0;
+                                U.goto_x = U.f8 = -1;
+                                U.status &= ~2;
+                                ek = -1;
+                            } else
+                                ek = ' ';
+                        }
+                    }
                     ku = U.x;
                     jv = U.y;
                     switch (ek) {
