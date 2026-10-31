@@ -534,7 +534,7 @@ stop:
  *
  * Auto Mine given where nothing is left to mine is level 2 ('n'): it mines
  * the Mountains around, which the land's own rule leaves alone. */
-char civwasm_auto_work[8][128];         /* 'i', 'm', 'n' (Mountains), 'a' (Auto Road; 'A', 'l', 'L' in older saves), 'e' (Auto Explore); 0 none */
+char civwasm_auto_work[8][128];         /* 'i', 'm', 'n' (Mountains), 'a' (Auto Road; 'A', 'l', 'L' in older saves), 'e' (Auto Explore), 't' (Auto Trade); 0 none */
 unsigned char civwasm_auto_x[8][128], civwasm_auto_y[8][128];   /* where the order was given */
 
 extern int work_tile(int, int), region_key(int, int);
@@ -934,6 +934,99 @@ int auto_explore_goal(int player, int unit)
                     by = y;
                 }
             }
+    if (bx == -1)
+        goto stop;
+    u->goto_x = (char) bx;
+    u->goto_y = (char) by;
+    d = unit_goal(player, unit);
+    if (d < 1 || d > 8)
+        goto stop;
+    return d;
+stop:
+    civwasm_auto_work[player][unit] = 0;
+    u->goto_x = u->f8 = -1;
+    return -1;
+}
+
+/* civ-wasm: Auto Trade (Shift+C): a Caravan heads for the city on its
+ * landmass where a trade route pays best, and sets it up on arrival
+ * (CONTROL.C answers the game's question for it). Candidates are the
+ * player's own cities 10 or more tiles from the caravan's home city, and
+ * cities of civilizations at peace with the player, all seen and on the
+ * landmass the caravan stands on. A route pays once, R = (distance + 10) x
+ * (both cities' trade) / 24, halved for an own city, a third less each if
+ * the destination's owner knows RailRoad or Flight (CAPTURE.C rpath); and
+ * every turn (both trades + 4) / 8, or / 16 for an own city, when the home
+ * city takes it among its 3 routes (rpath keeps the 3 best partners, a
+ * foreign one counting double, and no partner twice). The choice is the
+ * best of R + 20 turns of the route per tile of the way, made again at
+ * every move; a city another auto caravan already heads for counts only
+ * once. With nothing worth going to, or a unit of a civilization at war
+ * or of the barbarians next to it, the caravan asks for orders. */
+extern int treaties[8][8];
+
+int auto_trade_goal(int player, int unit)
+{
+    struct unit *u = &armydata[player][unit], *o;
+    int home = (unsigned char) u->home_city, region = region_key(u->x, u->y);
+    int c, d, i, j, k, owner, foreign, ht, ct, partner, weak, w, bx = -1, by = 0;
+    long r, per, score, best = 0;
+    if (home >= 128 || townbuf[home].status == -1 || townbuf[home].owner != player)
+        goto stop;
+    for (d = 1; d <= 8; d++) {
+        k = u->y + spiral_y[d];
+        if (k < 0 || k > 49 || map_stack(wrap_x(u->x + spiral_x[d]), k) == -1 || stk_plr == player)
+            continue;
+        if (stk_plr == 0 || (treaties[player][stk_plr] & 3) == 1)
+            goto stop;
+    }
+    ht = (unsigned char) townbuf[home].trade;
+    for (c = 0; c < 128; c++) {
+        if (c == home || townbuf[c].status == -1 || region_key(townbuf[c].x, townbuf[c].y) != region)
+            continue;
+        if (!(map_visible_to[townbuf[c].x * 50 + townbuf[c].y] & (1 << player)))
+            continue;
+        owner = townbuf[c].owner;
+        foreign = owner != player;
+        d = map_dist(townbuf[c].x, townbuf[home].x, townbuf[c].y, townbuf[home].y);
+        if (foreign ? owner == 0 || !(treaties[player][owner] & 2) : d < 10)
+            continue;
+        ct = (unsigned char) townbuf[c].trade;
+        r = (long) (d + 10) * (ht + ct) / 24;
+        if (!foreign)
+            r /= 2;
+        if (has_tech(owner, 49))
+            r -= r / 3;
+        if (has_tech(owner, 38))
+            r -= r / 3;
+        /* Would the home city keep it among its routes? */
+        weak = foreign ? ct * 2 : ct;
+        partner = 0;
+        for (j = 0; j < 3; j++) {
+            k = (unsigned char) townbuf[home].rest[11 + j];
+            if (k == c)
+                partner = 1;
+            w = k == 0xff ? -1 : (townbuf[k].owner != player ? 2 : 1) * (unsigned char) townbuf[k].trade;
+            if (w < weak)
+                weak = -2;
+        }
+        per = !partner && weak == -2 ? (ht + ct + 4) / (foreign ? 8 : 16) : 0;
+        for (i = 0; i < 128; i++) {
+            o = &armydata[player][i];
+            if (i != unit && o->type != -1 && civwasm_auto_work[player][i] == 't' &&
+                (unsigned char) o->goto_x == townbuf[c].x && (unsigned char) o->goto_y == townbuf[c].y)
+                per = 0;
+        }
+        k = wrap_dist(u->x, townbuf[c].x);
+        if (k < abs(u->y - townbuf[c].y))
+            k = abs(u->y - townbuf[c].y);
+        score = (r + per * 20) * 64 / (k + 2);
+        if (score > best) {
+            best = score;
+            bx = townbuf[c].x;
+            by = townbuf[c].y;
+        }
+    }
     if (bx == -1)
         goto stop;
     u->goto_x = (char) bx;

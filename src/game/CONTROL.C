@@ -399,6 +399,8 @@ uc:                            /* unit command */
                         ek = auto_road_goal(civ, jf);   /* civ-wasm: Auto Road (older saves' Auto Rail too) */
                     else if (civwasm_auto_work[civ][jf] == 'e')
                         ek = auto_explore_goal(civ, jf);        /* civ-wasm: Auto Explore */
+                    else if (civwasm_auto_work[civ][jf] == 't')
+                        ek = auto_trade_goal(civ, jf);  /* civ-wasm: Auto Trade */
                     else if (civwasm_auto_work[civ][jf])
                         ek = auto_work_goal(civ, jf);   /* civ-wasm: Auto Irrigate, Auto Mine */
                     else if (U.goto_x != -1)
@@ -470,6 +472,20 @@ uc:                            /* unit command */
                         U.goto_x = U.f8 = -1;
                         if (auto_explore_goal(civ, jf) == -1)
                             show_msg("Nothing left to\nexplore from here.\n", 100, 80);
+                        U.goto_x = U.f8 = -1;
+                        break;
+                    case 'C':
+                        /* civ-wasm: Auto Trade (PATH.C) */
+                        if (U.type != 27) {
+                            show_msg("Only Caravans can\ntrade on their own.\n", 100, 80);
+                            break;
+                        }
+                        civwasm_auto_work[civ][jf] = 't';
+                        civwasm_road_to[civ][jf] = 0;
+                        U.status &= 0x30;
+                        U.goto_x = U.f8 = -1;
+                        if (auto_trade_goal(civ, jf) == -1)
+                            show_msg("No city to trade\nwith from here.\n", 100, 80);
                         U.goto_x = U.f8 = -1;
                         break;
                     case 'I':
@@ -850,6 +866,8 @@ mv:                            /* move unit */
                                             }
                                             if (townbuf[uk].owner != civ)
                                                 hh = 1;
+                                            else if (civwasm_auto_work[civ][jf] == 't')
+                                                hh = 1;     /* civ-wasm: Auto Trade sets up the route */
                                             else
                                                 hh = show_msg(msgtext, 100, 80);
                                             if (hh == 1 && rpath(civ, jf, uk) != 0)

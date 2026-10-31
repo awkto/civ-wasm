@@ -82,6 +82,13 @@ The server holding the zip must allow cross-origin requests.
   have seen there that no one else holds, nearest first. Each stage is
   road first, then railroad once you know Railroad. When nothing is left
   they ask for orders.
+- **Auto Trade (Shift+C).** A Caravan goes to the city on its landmass
+  where a trade route pays best, weighing the one-time gold and science
+  against the trade the route adds every turn and the length of the walk,
+  and sets the route up when it arrives. It trades with your own cities 10
+  or more tiles from its home city and with civilizations you are at peace
+  with, never crosses the sea, and doesn't help build wonders. It asks for
+  orders when nothing is worth the trip or an enemy unit is next to it.
 - **Auto Explore (Shift+E).** Any land or sea unit heads for the nearest
   known tile that borders unexplored land or sea, on its own landmass or
   sea, choosing again at every move, until nothing is left to explore

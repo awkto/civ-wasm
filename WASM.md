@@ -231,3 +231,16 @@ with Railroad (tech 49) known, railroad (`lay_needed`):
 The settlers go to the needed tile nearest them that no other auto settler
 has taken, and ask for orders when none is left. An auto settler held by a
 zone of control waits for the next turn instead of cancelling.
+
+## Auto Trade
+
+Shift+C (or Orders, Auto Trade) on a Caravan sets `civwasm_auto_work` 't'.
+At every move `auto_trade_goal` (PATH.C) values each seen city on the
+caravan's landmass that `rpath` (CAPTURE.C) would trade with: own cities
+10+ tiles from the home city, cities of civilizations at peace. The value
+is rpath's one-time revenue plus 20 turns of the route's trade
+((both trades + 4) / 8, or / 16 at home) when the home city would keep it
+among its 3 routes and no other auto caravan heads there, per tile of the
+way. It goes there by `unit_goal`; on arrival CONTROL.C answers the trade
+question with "Establish trade route" for it. With nothing worth going to,
+or a barbarian or enemy unit next to it, it asks for orders.
