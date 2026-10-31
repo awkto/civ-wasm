@@ -225,6 +225,10 @@ void unit_orders_menu(int p, int u)
         strcat(msgtext, " Auto Explore \217E\n");      /* civ-wasm: PATH.C */
         keybuf[pos++] = 'E';
     }
+    if (unit_tab[p][u].type == 27) {
+        strcat(msgtext, " Auto Trade \217C\n");        /* civ-wasm: PATH.C */
+        keybuf[pos++] = 'C';
+    }
     if (tileflags & 0x1e) {
         ty = unit_tab[p][u].type;
         if (ty < 0x1a && ty != 0xe) {
