@@ -19,7 +19,16 @@ else
     ninja -C "$build"
     rm -rf "$build/site"
     mkdir -p "$build/site"
-    cp "$build/reciv.js" "$build/reciv.wasm" "$root/web/index.html" "$root/web/touch.js" \
+    cp "$build/reciv.js" "$build/reciv.wasm" "$root/web/touch.js" \
         "$root/web/manifest.webmanifest" "$root/web/icon.svg" "$build/site/"
+    # The page, with the game rules for the AI (docs/GAME-RULES.md) inside it.
+    awk -v rules="$root/docs/GAME-RULES.md" '
+        /<script type="text\/markdown" id="game-rules"><\/script>/ {
+            print "<script type=\"text/markdown\" id=\"game-rules\">"
+            while ((getline line < rules) > 0) print line
+            print "</script>"
+            next
+        }
+        { print }' "$root/web/index.html" > "$build/site/index.html"
     touch "$build/site/.nojekyll"
 fi

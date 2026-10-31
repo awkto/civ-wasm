@@ -137,9 +137,33 @@ static char far *build_name(int what)
     return what >= 0 ? utypes[what].name : improvements[-what].name;
 }
 
+/* Gold this turn, summed over the player's cities by city_record: taxes
+ * paid, and the buildings' upkeep as city_process charges it (CITYMGT.C:
+ * every improvement but the Palace, Barracks more with the level,
+ * Gunpowder and Combustion; nothing under Anarchy). */
+static long gold_in, gold_out;
+static int upkeep_of[24];
+
+static int city_upkeep(int city)
+{
+    int c = civnow, i, cost, sum = 0;
+
+    if (civ_gov[c] == 0)
+        return 0;
+    for (i = 1; i < 24; i++)
+        if (townbuf[city].buildings & (1L << i)) {
+            cost = improvements[i + 1].maintenance;
+            if (i == 1)
+                cost += (cur_tier >= 2) + (cur_tier >= 4) + has_tech(c, 34) + has_tech(c, 37);
+            upkeep_of[i] += cost;
+            sum += cost;
+        }
+    return sum;
+}
+
 static void city_record(int city)
 {
-    int c = civnow, i, cost, net, settler_food;
+    int c = civnow, i, cost, net, settler_food, upkeep, paid;
 
     RECIV_SI(city * 28), city_process(city, -1);
     settler_food = civ_gov[c] > 1 ? 2 : 1;
@@ -178,6 +202,13 @@ static void city_record(int city)
     field("corruption", city_leak);
     field("luxury", city_revel_sums);
     field("tax", taxes);
+    paid = (townbuf[city].status & 1) || civ_gov[c] == 0 ? 0 : taxes;
+    upkeep = city_upkeep(city);
+    gold_in += paid;
+    gold_out += upkeep;
+    field("tax_paid", paid);
+    field("upkeep", upkeep);
+    field("gold_net", paid - upkeep);
     field("science", learning_yield);
     field("happy", town_happy_ones_num);
     field("unhappy", town_unhappy_counts);
@@ -358,6 +389,9 @@ static void turn_record(void)
             text(improvements[24 + i].name);
         }
     put("]");
+    gold_in = gold_out = 0;
+    for (i = 0; i < 24; i++)
+        upkeep_of[i] = 0;
     key("cities");
     put("[");
     for (i = 0; i < 128; i++)
@@ -367,6 +401,21 @@ static void turn_record(void)
             city_record(i);
         }
     put("]");
+    /* where the gold goes each turn */
+    field("gold_income", (int) gold_in);
+    field("gold_upkeep", (int) gold_out);
+    field("gold_per_turn", (int) (gold_in - gold_out));
+    key("upkeep_by_building");
+    put("{");
+    for (i = 1; i < 24; i++)
+        if (upkeep_of[i]) {
+            if (out[-1] != '{')
+                put(",");
+            text(improvements[i + 1].name);
+            put(":");
+            num(upkeep_of[i]);
+        }
+    put("}");
     key("units");
     put("[");
     for (i = 0; i < 128; i++)
