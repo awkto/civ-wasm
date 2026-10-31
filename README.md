@@ -56,11 +56,12 @@ The server holding the zip must allow cross-origin requests.
   and goes back to the start page to begin or continue another game.
   Shortcuts: Alt with - or _ zooms out, Alt with = or + zooms in, Alt with
   ` ~ * or Backspace switches between the Windows and DOS map art.
-- **Road To (Shift+R).** A settlers' GoTo that builds road on every tile
+- **Road To (Shift+T).** A settlers' GoTo that builds road on every tile
   on its way, in the Orders menu below Build Road. The settlers walk over
   road already there and stop for orders at the target, before a river they
   cannot bridge yet, or when another civilization's unit comes next to
-  them.
+  them. Once you know Railroad, they finish the road to the target first,
+  then walk back to where you gave the order laying railroad.
 - **Auto Irrigate (Shift+I) and Auto Mine (Shift+M).** Auto Irrigate
   works for your cities on that landmass: the tiles they can work, the
   nearest city first, tiles a city is working before the rest, and cities
@@ -73,14 +74,14 @@ The server holding the zip must allow cross-origin requests.
   is left to do they ask for orders. Auto Mine given again where no Hills
   are left is level 2: it mines the Mountains around. Activating them gives them back to
   you.
-- **Rail To (Shift+T), Auto Road (Shift+A), Auto Rail (Shift+L).** Rail To
-  is Road To laying railroad (road first where there is none). Auto Road
-  and Auto Rail link your cities on the settlers' landmass with the
-  shortest network of straight-ish roads or railroads, working the nearest
-  tile still missing, then ask for orders. Given again on a landmass whose
-  network is built, they go to level 2: more direct links between each city
-  and its nearest neighbours (up to six, within 12 tiles), so there are
-  several ways between cities. Rail To and Auto Rail need Railroad.
+- **Auto Road (Shift+R).** Settlers slowly cover the landmass where you
+  gave the order: first the links between your cities (the shortest network
+  of straight-ish roads, then more direct links between each city and its
+  nearest neighbours, up to six within 12 tiles), then the tiles around
+  your cities (worked and irrigated tiles first), then every other tile you
+  have seen there that no one else holds, nearest first. Each stage is
+  road first, then railroad once you know Railroad. When nothing is left
+  they ask for orders.
 - **Auto Explore (Shift+E).** Any land or sea unit heads for the nearest
   known tile that borders unexplored land or sea, on its own landmass or
   sea, choosing again at every move, until nothing is left to explore

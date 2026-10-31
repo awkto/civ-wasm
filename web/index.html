@@ -1403,7 +1403,7 @@ const GAME_ADVANCES = ["Alphabet", "Code of Laws", "Currency", "Atomic Theory", 
 // hands the turn back at once; standing orders stay.
 const PLAN_RULES = `You are now playing this civilization yourself. Reply with one JSON object and nothing else:
 {"notes": [], "research": "", "rates": {"tax": 50, "science": 50}, "cities": [{"name": "", "build": ""}], "units": [{"id": 0, "order": "", "x": 0, "y": 0, "dir": ""}]}
-- units: an order for every unit listed as awaiting orders (others keep their standing orders unless you replace them). Orders: "goto" with x and y; "move" with dir N, NE, E, SE, S, SW, W or NW (one step; onto an enemy it attacks); "fortify"; "sentry"; "found_city" (Settlers: found a city on their tile, or join the city they stand in); "road", "irrigate", "mine" (Settlers, their tile); "auto_irrigate", "auto_mine", "auto_road" (Settlers improve the land for the cities); "explore"; "ai" (the game's own computer player moves the unit every turn: fine for routine units); "wait"; "skip"; "disband".
+- units: an order for every unit listed as awaiting orders (others keep their standing orders unless you replace them). Orders: "goto" with x and y; "move" with dir N, NE, E, SE, S, SW, W or NW (one step; onto an enemy it attacks); "fortify"; "sentry"; "found_city" (Settlers: found a city on their tile, or join the city they stand in); "road", "irrigate", "mine" (Settlers, their tile); "auto_irrigate", "auto_mine", "auto_road" (Settlers improve the land for the cities; auto_road links the cities, then their tiles, then the rest, road then railroad); "explore"; "ai" (the game's own computer player moves the unit every turn: fine for routine units); "wait"; "skip"; "disband".
 - Settlers show "around": the 8 tiles next to them, north first, clockwise. Found cities on Grassland, Plains or River with good land around, 3 to 5 tiles from other cities.
 - cities: a city keeps its build until it is finished. List a city only when its build can no longer be finished (change_due), it is in disorder or starving, enemies are near, or the player's direction calls for it; "build" must be in that city's can_build.
 - research: only when it should change, from can_research. rates: only when they should change; tax and science in tens, adding up to at most 100, the rest is luxury.
@@ -1411,7 +1411,7 @@ const PLAN_RULES = `You are now playing this civilization yourself. Reply with o
 - notes: usually empty. At most 1 short phrase, under 12 words each, only for a new decision worth telling the player: a build changed and why, unrest, a war, a new city, research or rates changed. Never repeat one of your recent notes.
 - Follow the player's direction.`;
 const ORDER_KEYS = { fortify: 'f', sentry: 's', found_city: 'b', road: 'r', irrigate: 'i', mine: 'm', auto_irrigate: 'I',
-  auto_mine: 'M', auto_road: 'A', explore: 'E', ai: 'Z', wait: 'w', skip: ' ', disband: 'D', home: 'h' };
+  auto_mine: 'M', auto_road: 'R', explore: 'E', ai: 'Z', wait: 'w', skip: ' ', disband: 'D', home: 'h' };
 const DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 
 var aiDriving = false;           // var: Settings may ask before this runs
