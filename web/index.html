@@ -1109,10 +1109,18 @@ function renderStats() {
   } else {
     body.innerHTML = table(['#', 'Unit', 'At', 'Home', 'Orders', 'Veteran'],
       now.units.map(u => row([u.id, esc(u.type), `(${u.x},${u.y})`, esc(u.home || '—'),
-        [u.fortified && 'fortified', u.sentry && 'sentry', u.goto && `GoTo (${u.goto})`, u.road_to && 'Road To',
-         u.auto_work && `Auto ${u.auto_work === 'i' ? 'Irrigate' : u.auto_work === 'm' ? 'Mine' : u.auto_work}`].filter(Boolean).join(', ') || '—',
+        unitOrders(u, '—'),
         u.veteran ? 'yes' : ''])));
   }
+}
+// What a unit is doing, in words, for the Units tab and the model.
+const AUTO_ORDERS = { i: 'Auto Irrigate', m: 'Auto Mine', n: 'Auto Mine (Mountains)', a: 'Auto Road', A: 'Auto Road', l: 'Auto Road', L: 'Auto Road', e: 'Auto Explore' };
+function unitOrders(u, none = 'none (idle, awaiting orders)') {
+  const s = u.status || 0, work = (s & 0xc2) === 0xc0 ? 'Building fortress' : (s & 0xc2) === 0x82 ? 'Pillaging' :
+    s & 0x40 ? 'Building irrigation' : s & 0x80 ? 'Building mine' : s & 2 ? 'Building road or railroad' : '';
+  return [AUTO_ORDERS[u.auto_work], u.road_to && `Road To (${u.goto})`, !u.road_to && !u.auto_work && u.goto && `GoTo (${u.goto})`, work,
+    u.fortified && 'Fortified', !u.fortified && s & 4 && 'Fortifying', u.sentry && 'Sentry', u.ai_auto && 'Moved by the game\'s computer player']
+    .filter(Boolean).join(', ') || none;
 }
 function statsPanel(open) {
   $('stats').hidden = !open;
@@ -1153,6 +1161,7 @@ Rules of this game (not Civ II or later):
 - Corruption grows with distance from the Palace; a Courthouse halves it.
 - Wonders are built once in the world; one built elsewhere can no longer be built.
 - Coordinates are tiles (x, y) on an 80x50 map; x wraps around.
+Reading the data: each unit's "orders" says what it is doing. Only units whose orders are "none (idle, awaiting orders)" are idle; Settlers on Auto Irrigate, Auto Mine or Auto Road work on their own until nothing is left, and units on GoTo or Road To are travelling: never call those idle.
 How to answer: be concrete and brief. Name cities, units and numbers from the data. Point out problems early (disorder next turn, starvation, wasted production, idle settlers, weak defence near rivals, a better research or build order). No preamble, no restating the data, no generic tips.`;
 
 const ADVISE_SHORT = `Give at most 3 actions, the most urgent first, each one line of under 15 words, as a list starting with "- ". If nothing needs doing, say so in one line.`;
@@ -1289,6 +1298,7 @@ function advisorContext(history) {
   }).join('\n');
   const stuck = now.cities.map(c => [c.name, sameSizeTurns(history, c.id)]).filter(([, n]) => n >= 8).map(([n, k]) => `${n} (${k} turns)`);
   const { at, battles, kind, ...state } = now;
+  state.units = state.units.map(u => ({ ...u, orders: unitOrders(u) }));
   return `Current state at the start of turn ${now.turn} (${yearText(now.year)}), JSON:\n${JSON.stringify(state)}\n\n` +
     `Battles so far this turn: ${JSON.stringify(battles)}\n\n` +
     `What happened over the last turns:\n${digest || '(no earlier turns recorded)'}\n\n` +
