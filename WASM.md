@@ -194,7 +194,7 @@ from Emscripten's ports.
 
 ## Road To
 
-Shift+R (or Orders, Road To) on settlers chooses a target as GoTo does.
+Shift+T (or Orders, Road To) on settlers chooses a target as GoTo does.
 `civwasm_road_to[civ][unit]` (PATH.C) marks the order; CONTROL.C then asks
 `road_to_goal` instead of `unit_goal`. It answers `r` while the settlers'
 tile has no road (or city), and otherwise unit_goal's step, keeping the
@@ -203,7 +203,11 @@ orders, clearing the GoTo, at the target, before a step onto a tile that
 cannot take a road (river without Bridge Building), and whenever another
 civilization's unit stands next to the settlers. The marks are written
 after the game's own data in the save (SAVE.C); a save without them loads
-with none, and the DOS game ignores the extra bytes.
+with none, and the DOS game ignores the extra bytes. With Railroad known,
+reaching the target turns the mark from 1 to 3 and the GoTo back to where
+the order was given (`civwasm_auto_x`, `civwasm_auto_y`, set with the
+mark), and `lay_needed` then asks for railroad, so 'r' lays the road where
+the way back has none and then the rail. Old saves' 2 (Rail To) acts as 1.
 
 ## Auto Irrigate, Auto Mine
 
@@ -235,20 +239,22 @@ only redrawn where it lands, if in view) and the jump to off-screen
 automatic units. The view catches up (`own_unseen`) when such a unit next
 needs the player, and before a battle or hut it walks into.
 
-## Rail To, Auto Road, Auto Rail
+## Auto Road
 
-Rail To (Shift+T) is Road To with `civwasm_road_to` 2: `lay_needed` asks
-for railroad, so 'r' lays road and then rail on each tile; its cursor reads
-RAIL (`civwasm_road_cursor_cut` word 1). Auto Road (Shift+A) and Auto Rail
-(Shift+L) are `civwasm_auto_work` 'a' and 'l', answered by `auto_road_goal`
-(PATH.C): Kruskal over each own city's six nearest on the order's
-landmass. Given where that network is built (CONTROL.C asks
-`auto_road_goal` at the order), they are 'A' and 'L', level 2: after the
-network, every other of those links within 12 tiles. Each link is walked by `link_step`, steps that always come closer
-to the far city (so at most 40), preferring tiles already done and the
-straight line, over land that takes a road and past no foreign city or
-unit; an unwalkable link is left out. The settlers go to the needed tile
-nearest them that no other auto settler has taken, and ask for orders when
-none is left. Rail To and Auto Rail need Railroad (tech 49). An auto
-settler held by a zone of control waits for the next turn instead of
-cancelling.
+Auto Road (Shift+R) is `civwasm_auto_work` 'a' (older saves' 'A', 'l', 'L'
+from the former level 2 and Auto Rail act the same), answered by
+`auto_road_goal` (PATH.C) in three stages, each with road first and then,
+with Railroad (tech 49) known, railroad (`lay_needed`):
+1. Links: Kruskal over each own city's six nearest on the order's
+   landmass, then every other of those links within 12 tiles. Each link is
+   walked by `link_step`, steps that always come closer to the far city
+   (so at most 40), preferring tiles already done and the straight line,
+   over land that takes a road and past no foreign city or unit; an
+   unwalkable link is left out.
+2. The 20 radius tiles of those cities (`road_wanted`: seen, on the
+   landmass, not foreign ground), scored by distance with worked and
+   irrigated tiles first.
+3. Every other tile `road_wanted` accepts, nearest first.
+The settlers go to the needed tile nearest them that no other auto settler
+has taken, and ask for orders when none is left. An auto settler held by a
+zone of control waits for the next turn instead of cancelling.
