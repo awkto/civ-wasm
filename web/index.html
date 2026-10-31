@@ -319,6 +319,8 @@
   <div id="advisor-log"></div>
   <form id="advisor-form"><input id="advisor-q" placeholder="Ask: what should Rome build?" autocomplete="off"><button>Ask</button></form>
 </div>
+<!-- The game rules for the AI: docs/GAME-RULES.md, filled in by tools/wasm/build.sh. -->
+<script type="text/markdown" id="game-rules"></script>
 <!-- Debug game stats: the record the game keeps of each turn (src/game/STATS.C). -->
 <div id="stats" hidden>
   <div class="card">
@@ -1146,20 +1148,18 @@ $('stats-download').addEventListener('click', () => {
 // or when asked. The page calls the endpoint itself with the player's key,
 // which stays in this browser. Each game keeps its advice:
 //   /saves/games/<id>/advisor.json   [{turn, year, role, text}, …]
-// The rules below are this game's, read from src/game (CITYMGT.C and the
-// tables in GAME.C), so the advice is about Civilization as it plays here.
+// The rules below are this game's, checked against src/game. The full
+// reference, docs/GAME-RULES.md, is put into the page by the build as
+// #game-rules and goes with every request after them.
+const GAME_RULES = (document.getElementById('game-rules')?.textContent || '').trim();
+const RULES_REF = GAME_RULES ? '\nGame rules reference, from this game\'s source code:\n' + GAME_RULES : '';
 const ADVISOR_RULES = `You are an expert adviser for Sid Meier's Civilization (1991, DOS), helping the player win.
-Rules of this game (not Civ II or later):
-- Each citizen eats 2 food; Settlers eat 1 more under Anarchy/Despotism, 2 more under later governments. A city grows when its food box holds (size+1)*10; a Granary keeps half after growth. Food below zero shrinks the city.
-- A city stops growing past size 10 without an Aqueduct.
-- Anarchy and Despotism take 1 off any tile yielding more than 2 food, shields or trade.
-- Citizens are content up to a limit (about 4, lower on harder levels and as the empire gains cities); the rest are unhappy. Civil disorder happens when unhappy > happy: the city produces no shields, taxes or science until fixed.
-- Fixes for unhappiness: luxury (2 luxury = 1 citizen happy), Temple (1 content, 2 with Mysticism), Colosseum (3), Cathedral (4 with Religion; 6 with Michelangelo's), entertainers (specialists), and under Anarchy/Despotism/Monarchy/Communism up to 3 military units in the city (martial law). Under Republic/Democracy each military unit away from home makes citizens unhappy.
-- Unit support: under Despotism a city supports as many units as its size for free, later governments pay 1 shield per unit. Settlers also cost food.
-- Library and University each add 50% science; MarketPlace and Bank add 50% tax and luxury.
-- Governments: Anarchy (after a revolution, no science), Despotism, Monarchy, Communism, Republic (more trade, war weariness), Democracy (most trade, no corruption, units abroad cause unrest, Senate). Republic or Democracy cities with more happy than unhappy citizens and none unhappy grow 1 a turn ("We Love the King Day").
-- Corruption grows with distance from the Palace; a Courthouse halves it.
-- Wonders are built once in the world; one built elsewhere can no longer be built.
+This is Civ1, not Civ II or later: much that you know from later games is wrong here. Trust the game rules reference below over memory.
+Key facts:
+- Gold: income is each city's tax (none in disorder or under Anarchy). Every building but the Palace costs gold upkeep every turn, in disorder too; Barracks cost more on higher levels and after Gunpowder and Combustion. Units never cost gold. When gold would go below 0 a building is sold off. The data gives each city's tax_paid, upkeep and gold_net, and for the empire gold_income, gold_upkeep, gold_per_turn and upkeep_by_building: use them to explain gold.
+- Disorder stops a city's shields and taxes (not science or food), and its upkeep is still paid. Democracy falls into Anarchy when a city stays in disorder 2 turns running.
+- Under Republic and Democracy each attack-capable unit outside its home city makes 1 (Republic) or 2 (Democracy) citizens unhappy; there is no other war weariness.
+- Wonders are built once in the world, and stop working for everyone once anyone learns the advance that makes them obsolete.
 - Coordinates are tiles (x, y) on an 80x50 map; x wraps around.
 Reading the data: each unit's "orders" says what it is doing. Only units whose orders are "none (idle, awaiting orders)" are idle; Settlers on Auto Irrigate, Auto Mine or Auto Road work on their own until nothing is left, and units on GoTo or Road To are travelling: never call those idle.
 How to answer: be concrete and brief. Name cities, units and numbers from the data. Point out problems early (disorder next turn, starvation, wasted production, idle settlers, weak defence near rivals, a better research or build order). No preamble, no restating the data, no generic tips.`;
@@ -1359,7 +1359,7 @@ async function advise(question) {
   const thread = before.length ? before[0].thread : Date.now();
   if (question) advisorSay({ role: 'user', turn: now.turn, year: now.year, text: question, thread });
   const messages = [
-    { role: 'system', content: ADVISOR_RULES + '\n' + (question ? ANSWER_SHORT : ADVISE_SHORT) },
+    { role: 'system', content: ADVISOR_RULES + RULES_REF + '\n\n' + (question ? ANSWER_SHORT : ADVISE_SHORT) },
     { role: 'user', content: advisorContext(history) },
     ...before.slice(-8).map(e => ({ role: e.role === 'user' ? 'user' : 'assistant', content: e.text })),
     { role: 'user', content: question || `It is the start of turn ${now.turn}. What should I do now?` },
@@ -1486,7 +1486,7 @@ async function planTurn(rec) {
   const history = statsHistory(), notes = advisorLog().filter(e => e.role === 'note').slice(-5);
   const idle = awaiting(rec);
   const messages = [
-    { role: 'system', content: ADVISOR_RULES + '\n' + PLAN_RULES },
+    { role: 'system', content: ADVISOR_RULES + RULES_REF + '\n\n' + PLAN_RULES },
     { role: 'user', content: advisorContext(history) +
       `\n\nUnits awaiting orders: ${idle.map(u => `${u.id} ${u.type} at (${u.x},${u.y})`).join('; ') || 'none'}` +
       `\n\nGame messages since your last plan: ${aiMessages.join(' | ') || 'none'}` +
